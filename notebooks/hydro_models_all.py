@@ -505,9 +505,148 @@ def hydro_model_4(met_df, ics, p, period, step_len=1):
 
     # Concatenate results dataframes
     df = pd.concat([df1,df2], axis=1)
+    
+    # SEEM TO HAVE CRUCIAL DIFFERENCE TO V1 MISSING!! HERE, SHOULD HAVE SOMETHING
+    # WHICH SETS GROUNDWATER DRAINAGE TO THE MINIMUM GW Q IF IT'S BELOW IT!!
 
     # Estimate runoff as Ds + Dg
     df['Sim_Runoff_mm_IE'] = df['Ds'] + df['Dg'] + df['Qq']
     df['Sim_Runoff_mm'] = df['Ds'] + df['Dg']
+
+    return df
+
+#%% (standard cell separator)
+
+# VERSION 5: Almost the same as Version 4, but with the addition of a single
+# in-stream reach.
+# Includes a fudge to prevent groundwater flow from dropping below a user-specified
+# threshold (implemented in a slightly different way to Version 4)
+
+# Result: Good. Without much effort to manually calibrate any of the parmaeters,
+# have a NSE of 0.67 for 2004-2005 (old Coull rating), log-NSE of 0.77. i.e.
+# comparable to manual calibration using INCA.
+
+def hydro_model_5(met_df, ics, p, period, step_len=1):
+    """ The hydrological model
+
+            met_df         Dataframe containing columns 'Rainfall_mm' and 'PET_mm', with datetime index
+            ics            Vector of initial conditions [Vs0, Qg0, Qr0]
+            p              Series of parameter values (index = param name)
+                           Includes the extra param q_gw_min
+            period         Vector of [start, end] dates [yyyy-mm-dd, yyyy-mm-dd]
+            step_len       Length of each step in the input dataset (days)
+
+        Returns a dataframe with column headings
+        ['Vs', 'Qs', 'Vg', 'Qg', 'Vr', 'Qr', 'Dr','Qq']
+        (soil water volume and flow, groundwater volume and flow, reach volume
+        and flow, mean average daily flow in reach, quick flow)
+    """
+    # ------------------------------------------------------------------------
+    # Define the ODE system
+    def f(y, t, ode_params):
+        """ Define ODE system.
+                y is list or variables for which we want to determine their value at the end of
+                    the time step
+                    [Vs, Qs, Vg, Qg, Vr, Qr, Dr]
+                t is an array of time points of interest
+                params is a tuple of input values & model params:
+                    (P, E, Qq_i, f_IExcess, alpha, beta, T_s, T_g, fc, L_reach, a_Q, b_Q)
+        """
+        # Unpack incremental values for Qs and Qg from 
+        Vs_i = y[0]
+        Qs_i = y[1]
+        Qg_i = y[3]
+        Qr_i = y[5]
+        
+        # Unpack params
+        P, E, Qq_i, f_IExcess, alpha, beta, T_s, T_g, fc, L_reach, a_Q, b_Q = ode_params
+    
+        # Soil equations
+        dQs_dV = (((Vs_i - fc)*np.exp(fc - Vs_i))/(T_s*((np.exp(fc-Vs_i) + 1)**2)))
+        +(1/(T_s*(np.exp(fc-Vs_i) + 1)))
+        dVs_dt = P*(1-f_IExcess) - alpha*E*(1 - np.exp(-0.02*Vs_i)) - Qs_i
+        dQs_dt = dQs_dV*dVs_dt
+        
+        # Groundwater equations
+        dQg_dt = (beta*Qs_i - Qg_i)/T_g
+        dVg_dt = beta*Qs_i - Qg_i
+        
+        # Instream equations       
+        # NB factor in dQr_dt converts units of instream velocity (aQ^b) from m/s to mm/day; L_reach is in mm
+        dQr_dt = ((Qq_i + (1-beta)*Qs_i + Qg_i) - Qr_i)* a_Q*(Qr_i**b_Q)*(8.64*10**7)/((1-b_Q)*L_reach)
+        dVr_dt = (Qq_i + (1-beta)*Qs_i + Qg_i) - Qr_i
+        dDr_dt = Qr_i
+        
+        # Add results of equations to an array
+        res = np.array([dVs_dt, dQs_dt, dVg_dt, dQg_dt, dVr_dt, dQr_dt, dDr_dt])
+        
+        return res
+    # -------------------------------------------------------------------------
+
+    # Unpack initial conditions (initial soil water volume, groundwater flow, instream flow)
+    Vs0, Qg0, Qr0 = ics
+
+    # Time points to evaluate ODEs at. We're only interested in the start and
+    # the end of each step
+    ti = [0, step_len]
+
+    # Lists to store output
+    output_ODEs = []
+    output_rest = []
+
+    # Loop over met data
+    for idx in range(len(met_df)):
+
+        # Get P and E for this day
+        P = met_df.ix[idx, 'P']
+        E = met_df.ix[idx, 'PET']
+
+        # Calculate infiltration excess and add to results
+        Qq_i = p['f_IExcess']*P
+        output_rest.append(Qq_i)
+
+        # Calculate additional initial conditions from user-input initial conditions
+        Qs0 = (Vs0 - p['fc'])/(p['T_s']*(1 + np.exp(p['fc'] - Vs0)))
+        Vg0 = Qg0 *p['T_g']
+        Vr0 = Qr0 * (p['L_reach']/(p['a_Q'])*Qr0**p['b_Q']) # i.e. V=QT, where T=L/aQ^b
+
+        # Vector of initial conditions (adding 0 for Dr0, daily mean instream Q)
+        y0 = [Vs0, Qs0, Vg0, Qg0, Vr0, Qr0, 0.0]
+
+        # Model parameters plus rainfall and ET, for input to solver
+        ode_params = np.array([P, E, Qq_i, p['f_IExcess'],p['alpha'], p['beta'],
+                               p['T_s'], p['T_g'], p['fc'], p['L_reach'], p['a_Q'], p['b_Q']])
+
+        # Solve
+        y = odeint(f, y0, ti, args=(ode_params,))
+
+        # Extract values for end of step
+        res = y[1]
+
+        # Numerical errors may result in very tiny values <0
+        # set these back to 0
+        res[res<0] = 0
+        output_ODEs.append(res)
+
+        # Update initial conditions for next step
+        Vs0 = res[0]
+        # FUDGE to re-set groundwater to user-supplied min flow at start of each time step!!!
+        if param_dict['Qg_min'] > res[3]:
+            Qg0 = p['Qg_min']
+        else:
+            Qg0 = res[3]
+        Qr0 = res[5]
+
+    # Build a dataframe of ODE results
+    df1 = pd.DataFrame(data=np.vstack(output_ODEs),
+                      columns=['Vs', 'Qs', 'Vg', 'Qg', 'Vr', 'Qr', 'Dr'],
+                      index=met_df.index)
+    
+    # Dataframe of non ODE results
+    df2 = pd.DataFrame(data=np.vstack(output_rest), columns=['Qq'],
+                     index=met_df.index)
+
+    # Concatenate results dataframes
+    df = pd.concat([df1,df2], axis=1)
 
     return df
