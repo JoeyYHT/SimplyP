@@ -3409,3 +3409,27 @@ def P_model_v2_beta3(met_df, p_LU, p_SC, p, dynamic_options, run_mode, inc_snowm
 
     return (df_TC_dict, df_R_dict, Kf, output_dict)  # NB Kf is returned for the last SC only
 
+	
+# Accompanying this is an extra terrestrial compartment plot showing erosion from the land,
+# which is no longer plotted in beta4, as Mland isn't explicitly calculated
+
+# Plot 3: erosion
+df_TC_totErosion = df_TC_dict[1][TC_f3_vars] # Just plot for 1st sub-catchment
+# Raw df results assume this land cover with the area of the whole sub-catchment, therefore
+# normalise to get flux per unit area
+df_TC_erosion = df_TC_totErosion/(p_SC.ix['A_catch',1]) # kg/km2/day
+TC_fig3_axes = df_TC_erosion.plot(subplots=True,figsize=(w, len(TC_f3_vars)*h+1),legend=False)
+plt.xlabel("")
+for i, ax in enumerate(TC_fig3_axes):
+    TC_fig3_axes[i].set_ylabel(TC_ylab_d[TC_f3_vars[i]], fontsize=9)
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=max_yticks, prune='upper'))
+    plt.tick_params(axis='both', which='major', labelsize=6)
+    plt.tick_params(axis='both', which='minor', labelsize=6)
+fname_TC3 = os.path.join(p_SU.output_fpath, "Fig_TC_SedYield.%s" %p_SU.output_figtype)
+if p_SU.plot_TC == 'y':
+    plt.savefig(fname_TC3, bbox_inches='tight', dpi=p_SU.output_fig_dpi)
+	
+
+
+
+
