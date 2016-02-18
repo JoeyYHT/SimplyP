@@ -6,18 +6,18 @@ The hydrology model builds on that described here: (insert link to James Sample'
 
 The remainder was developed by Leah Jackson-Blake and forms part of her PhD thesis. The work was funded by the RESAS, the Rural and Environment Science and Analytical Services Division of the Scottish Government.
 
-## IPython notebooks
+## Running the model
 
-The links at the top of this page will take you to static versions of these notebooks rendered with [nbviewer](http://nbviewer.ipython.org/). However, the notebooks can also be downloaded and run interactively. The following steps should get you started on Windows:
+A static version of the model can be viewed with [nbviewer](http://nbviewer.ipython.org/). However, to run the model it needs to be downloaded. The following steps should get you started on Windows:
 
-1. You'll need an up-to-date IPython installation. If you don't have one already try [WinPython](http://winpython.sourceforge.net/), which is a comprehensive and portable Python distribution that won't interfere with anything else on your system.<br><br> 
+1. If you don't have an up-to-date IPython installation, a good option is [WinPython](http://winpython.sourceforge.net/), which is a comprehensive and portable Python distribution that won't interfere with anything else on your system. Model development was carried out using Python 2.7.<br><br> 
 
-2. Once WinPython is installed, go to one of the notebooks and download the **.ipynb** file to your computer (the "download" icon is at the top-right of the screen).<br><br>
+2. Once WinPython is installed, click on the download icon at the top right of the screen, to save the model and some example files to your computer.<br><br>
 
-3. Open the folder containing your WinPython installation and run the **WinPython Command Prompt** (not the normal Windows Command Prompt).<br><br>
+3. On your computer, open the folder containing your WinPython installation and double click on the **WinPython Command Prompt** to open it (not the normal Windows Command Prompt).<br><br>
 
-4. **Change directories** to wherever you saved the **.ipynb** file and then type `ipython notebook` at the command prompt. Your browser should open to display the IPython dashboard and you'll see a link to the notebook you just downloaded.<br><br>
+4. Within the WinPython command window, **Change directories** to wherever you saved the folder containing the model. This is done using normal command line syntax (e.g. cd C:\Working\NewModelFolder). Then type `ipython notebook` at the command prompt. Your browser should open to display the IPython dashboard and you'll see a link to the notebook you just downloaded. **Do not close the WinPython Command Prompt**.<br><br>
 
-5. Click to open the notebook then choose `Cell > Run All` from the menu bar. Python will import all the necessary modules and run the notebook cells, which might take a few moments.<br><br>
+5. Click on the SimplyP_vxx.ipynb file to open the notebook containing the model.
 
-You can then work through the notebook interactively.
+Further instructions for running the model are then provided at the top of the notebook containing the model
