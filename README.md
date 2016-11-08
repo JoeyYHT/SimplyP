@@ -1,6 +1,6 @@
 # A simple phosphorus model
 
-This repository contains code to run a simple hydrology, sediment and phosphorus model. The model is dynamic, working on a daily time step, and spatially semi-distributed - there is the ability to differentiate between hydrology, sediment and phosphorus processes between land use types and sub-catchments (with associated stream reaches).
+This repository contains code to run a simple hydrology, sediment and phosphorus model (http://nbviewer.jupyter.org/github/LeahJB/SimplyP/blob/Hydrology_Model/SimplyP_v0-1A.ipynb). The model is dynamic, working on a daily time step, and spatially semi-distributed - there is the ability to differentiate between hydrology, sediment and phosphorus processes between land use types and sub-catchments (with associated stream reaches).
 
 The hydrology model builds on that described here: https://github.com/JamesSample/enviro_mod_notes.git
 
