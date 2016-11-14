@@ -1,0 +1,12 @@
+Parameter files for the scenario runs for INCA-P in the Tarland catchment
+Run for the period 1981 - 2010
+
+Produced by Leah Jackson-Blake. Originally carried out for the Defra LM03 Integrated Modelling project.
+Reproduced in Jackson-Blake et al. (2016) EM&S.
+
+Scenarios:
+M00: baseline (same as calibration parameters)
+M2a: 10% P reduction to agricultural land
+M2b: 25% reduction
+M2c: 50% reduction
+M2d: 100% reduction
