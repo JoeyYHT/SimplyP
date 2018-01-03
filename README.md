@@ -1,28 +1,31 @@
-# A simple phosphorus model
+# SimplyP: a simple phosphorus model
 
-This repository contains code to run a simple hydrology, sediment and phosphorus model (http://nbviewer.jupyter.org/github/LeahJB/SimplyP/blob/Hydrology_Model/SimplyP_v0-1A.ipynb). The model is dynamic, working on a daily time step, and spatially semi-distributed - there is the ability to differentiate between hydrology, sediment and phosphorus processes between land use types and sub-catchments (with associated stream reaches).
+This repository contains code to run a simple hydrology, sediment and phosphorus model, named **SimplyP**. The model is dynamic, working on a daily time step, and is spatially semi-distributed i.e. there is the ability to differentiate between hydrology, sediment and phosphorus processes, and between land use types and sub-catchments (with associated stream reaches). An application of the model is described in this paper:
 
-The hydrology model builds on that described here: https://github.com/JamesSample/enviro_mod_notes.git
+> Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. *Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P*. Water Resources Research, **53**, 5382–5399. [doi:10.1002/2016WR020132](http://onlinelibrary.wiley.com/doi/10.1002/2016WR020132/abstract;jsessionid=7E1F1066482B9FFDBC29BA6B5A80042C.f04t01)
 
-The remainder was developed by Leah Jackson-Blake and forms part of her PhD thesis. The work was funded by the RESAS, the Rural and Environment Science and Analytical Services Division of the Scottish Government.
+and full details of the model itself are provided in the [Supplementary Information](http://onlinelibrary.wiley.com/store/10.1002/2016WR020132/asset/supinfo/wrcr22702-sup-0001-2016WR020132-s01.pdf?v=1&s=fc5ee61527c9fc914b4c14b35562f30b85d3c927). 
 
-Please report any bugs or errors by submitting a pull request, or by email to ljb at niva.no
+The hydrology model used by SimplyP builds upon the one described [here](https://github.com/JamesSample/enviro_mod_notes.git) (see especially [notebook 5](http://nbviewer.jupyter.org/github/JamesSample/enviro_mod_notes/blob/master/notebooks/05_A_Hydrological_Model.ipynb)). The remainder was developed by Leah Jackson-Blake and forms part of her PhD thesis. The work was funded by the RESAS, the Rural and Environment Science and Analytical Services Division of the Scottish Government.
+
+Please report any bugs or errors either by [submitting a pull request via GitHub](https://github.com/LeahJB/SimplyP/pulls) or by emailing Leah Jackson-Blake (<ljb@niva.no>).
 
 ## Running the model
 
-A static version of the model can be viewed with [nbviewer](http://nbviewer.ipython.org/). However, to run the model it needs to be downloaded. The following steps should get you started on Windows:
+A simple example illustrating how the model can be used is [here](http://nbviewer.jupyter.org/github/LeahJB/SimplyP/blob/Hydrology_Model/SimplyP_v0-1A.ipynb). To install the model and run the example, follow these steps:
 
-1. If you don't have an up-to-date IPython installation, a good option is [WinPython](http://winpython.sourceforge.net/), which is a comprehensive and portable Python distribution that won't interfere with anything else on your system. Model development was carried out using Python 2.7.<br>
+1. If you don't have an up-to-date Python installation, a good option is the [Anaconda Python distribution](https://www.anaconda.com/download/), which includes all the dependencies required by SimplyP. Model development was carried out using Python 2.7
 
-2. Once WinPython is installed, click on the download icon at the top right of the screen, to save the model and some example files to your computer.<br>
+2. Download the [SimplyP repository](https://github.com/LeahJB/SimplyP) and unzip it to a location on your system
 
-3. On your computer, open the folder containing your WinPython installation and double click on the **WinPython Command Prompt** to open it (not the normal Windows Command Prompt).<br>
+3. Open the Anaconda command prompt, chnage directories to the 'SimplyP' folder (the one containing 'setup.py') and run
 
-4. Within the WinPython command window, **Change directories** to wherever you saved the folder containing the model. This is done using normal command line syntax (e.g. cd C:\Working\NewModelFolder). Then type `ipython notebook` at the command prompt. Your browser should open to display the IPython dashboard and you'll see a link to the notebook you just downloaded. **Do not close the WinPython Command Prompt**.<br>
+        python setup.py install
 
-5. Click on the SimplyP.ipynb file to open the notebook containing the model.<br>
+4. From the same directory in the Anaconda command prompt, run
 
-6. When you have finished running the model and looking at any results in the browser, click 'File > Close and Halt'. The browser can then be closed. In the WinPython Command Prompt Window type 'Ctrl C' to shut down any Python kernels which may still be open, and then close this too.
+        jupyter notebook
+    
+   then click the link to open 'SimplyP_v0-1A.ipynb'. You should now be able to work through the notebook, running the code cells interactively.
 
-
-Further instructions for running the model are provided at the top of the notebook containing the model
+5. When you have finished working with the model, click 'File > Close and Halt' (remember to save any changes first, if desired), then close the browser tab. In the Anaconds command prompt, type 'Ctrl C' to shut down any Python kernels which may still be active, and then close this too.
