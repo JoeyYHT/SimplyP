@@ -18,7 +18,7 @@ A simple example illustrating how the model can be used is [here](http://nbviewe
 
 2. Download the [SimplyP repository](https://github.com/LeahJB/SimplyP) and unzip it to a location on your system
 
-3. Open the Anaconda command prompt, chnage directories to the 'SimplyP' folder (the one containing 'setup.py') and run
+3. Open the Anaconda command prompt, change directories to the 'SimplyP' folder (the one containing 'setup.py') and run
 
         python setup.py install
 
@@ -28,4 +28,4 @@ A simple example illustrating how the model can be used is [here](http://nbviewe
     
    then click the link to open 'SimplyP_v0-1A.ipynb'. You should now be able to work through the notebook, running the code cells interactively.
 
-5. When you have finished working with the model, click 'File > Close and Halt' (remember to save any changes first, if desired), then close the browser tab. In the Anaconds command prompt, type 'Ctrl C' to shut down any Python kernels which may still be active, and then close this too.
+5. When you have finished working with the model, click 'File > Close and Halt' (remember to save any changes first, if desired), then close the browser tab. In the Anaconds command prompt, type 'Ctrl C' to shut down any Python kernels that may still be active, and then close this too.
