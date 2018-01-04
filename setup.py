@@ -29,4 +29,5 @@ setup(name='simply_p',
                         'pandas',
                         'seaborn',
                         'numpy',
-                        'scipy'])
+                        'scipy',
+                        'xlrd'])
