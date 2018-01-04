@@ -743,7 +743,7 @@ def read_input_data(params_fpath):
         obs_dict:        Dict. Observed discharge and chemistry data
     """
     # USER SET-UP PARAMETERS
-    p_SU = pd.read_excel(params_fpath, sheetname='Setup', index_col=0, parse_cols="A,C")
+    p_SU = pd.read_excel(params_fpath, sheet_name='Setup', index_col=0, usecols="A,C")
     p_SU = p_SU['Value'] # Convert to a series
 
     # Extract user set-up parameters for dynamic dict
@@ -755,21 +755,21 @@ def read_input_data(params_fpath):
 
     # CONSTANT PARAMS: Parameters that're constant over land use, sub-catchment or reach.
     # Values in col 'Value'
-    p = pd.read_excel(params_fpath, sheetname='Constant', index_col=0, parse_cols="B,E")
+    p = pd.read_excel(params_fpath, sheet_name='Constant', index_col=0, usecols="B,E")
     p = p['Value'] # Convert to a series
 
     # LAND USE PARAMETERS. Values in cols A,S,IG,NC
-    p_LU = pd.read_excel(params_fpath, sheetname='LU', index_col=0, parse_cols="B,E,F,G,H")
+    p_LU = pd.read_excel(params_fpath, sheet_name='LU', index_col=0, usecols="B,E,F,G,H")
 
     # SUB-CATCHMENT & REACH PARAMETERS: Values in cols '1', '2',..
     # Some fiddling required to parse the right number of columns, according to the number of SCs
     p['SC_list'] = np.arange(1,p_SU.n_SC+1)
     lastCol = chr(ord('E')+p_SU.n_SC-1) # Last column in excel sheet to be parsed
     if p_SU.n_SC ==1:
-        parse_cols_str = "B,E"
+        usecols_str = "B,E"
     else:
-        parse_cols_str = "B,E:%s" %lastCol
-    p_SC = pd.read_excel(params_fpath, sheetname='SC_reach', index_col=0, parse_cols=parse_cols_str)
+        usecols_str = "B,E:%s" %lastCol
+    p_SC = pd.read_excel(params_fpath, sheet_name='SC_reach', index_col=0, usecols=usecols_str)
 
     # MET DATA
     # Assume constant met data over the catchment. This could be amended in the future.
@@ -790,11 +790,11 @@ def read_input_data(params_fpath):
     for SC in p['SC_list']:  # Loop through all sub-catchments being simulated
         df_li = []  # List of Q and chem dataframes for the reach; may be empty or have up to 2 dfs
         if SC in SC_with_Qobs:  # Check whether the sub-catchment has discharge data
-            Qobs_df = pd.read_excel(p_SU.Qobsdata_fpath, sheetname=str(SC), index_col=0)
+            Qobs_df = pd.read_excel(p_SU.Qobsdata_fpath, sheet_name=str(SC), index_col=0)
             Qobs_df = Qobs_df.truncate(before=p_SU.st_dt, after=p_SU.end_dt)
             df_li.append(Qobs_df)
         if SC in SC_with_chemObs:  # Check whether the sub-catchment has chemistry data
-            chemObs_df = pd.read_excel(p_SU.chemObsData_fpath, sheetname=str(SC), index_col=0)
+            chemObs_df = pd.read_excel(p_SU.chemObsData_fpath, sheet_name=str(SC), index_col=0)
             chemObs_df = chemObs_df.truncate(before=p_SU.st_dt, after=p_SU.end_dt)
             df_li.append(chemObs_df)
         # If this SC has observations, add it to the dictionary of observations (obs_dict)
