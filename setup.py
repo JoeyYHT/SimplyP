@@ -30,6 +30,4 @@ setup(name='simply_p',
                         'seaborn==0.8.1',
                         'numpy==1.14.2',
                         'scipy==1.0.1',
-                        'xlrd==1.1.0',
-                        'jupyter==1.0.0',
-                        'notebook==5.4.1'])
+                        'xlrd==1.1.0'])
