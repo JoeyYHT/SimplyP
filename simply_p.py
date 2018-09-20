@@ -743,7 +743,7 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
         
     # If in calibration mode, print the calculated Kf value
     if p_SU.run_mode == 'cal':
-        print "Kf (the soil P sorption coefficient; mm/kg): %s" % Kf
+        print ("Kf (the soil P sorption coefficient; mm/kg): %s" % Kf)
         
     return (df_TC_dict, df_R_dict, Kf, output_dict)  # NB Kf is returned for the last SC only
 
