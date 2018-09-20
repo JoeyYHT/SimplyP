@@ -46,4 +46,4 @@ A simple example illustrating how the model can be used is [here](http://nbviewe
     
    then click the link to open `'SimplyP_v0-1A.ipynb'`. You should now be able to work through the notebook, running the code cells interactively.
 
-3. When you have finished working with the model, click 'File > Close and Halt' (remember to save any changes first, if desired), then close the browser tab. On the `'Home'` tab, click `'Quit'` to shut down any Python kernels that may still be active, and then close this too.
+3. When you have finished working with the model, click 'File > Close and Halt' (remember to save any changes first, if desired), then close the browser tab. Close the `'Home'` tab too, then `CTRL + C'` twice at the Anaconda prompt to shut down any active Python kernels.
