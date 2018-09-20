@@ -16,15 +16,15 @@ If you don't have an up-to-date Python installation, a good option is the [Anaco
 
 1. From the Anaconda prompt, create a new clean conda environment for SimplyP
 
-    conda create -n simplyp python=2.7
+       conda create -n simplyp python=2.7
     
 2. Activate the new environment
 
-    activate simplyp
+       activate simplyp
     
 3. Install the Jupyter Notebook
 
-    conda install jupyter=1.0.0 notebook=5.4.1
+       conda install jupyter=1.0.0 notebook=5.4.1
     
 4. Download the [SimplyP repository](https://github.com/LeahJB/SimplyP) and unzip it to a location on your system
 
@@ -38,11 +38,11 @@ A simple example illustrating how the model can be used is [here](http://nbviewe
 
 1. From the Anaconda prompt, activate your SimplyP environment
 
-    activate simplyp
+       activate simplyp
     
 2. Change to the directory containing `'SimplyP_v0-1A.ipynb'` and run
 
-        jupyter notebook
+       jupyter notebook
     
    then click the link to open `'SimplyP_v0-1A.ipynb'`. You should now be able to work through the notebook, running the code cells interactively.
 
