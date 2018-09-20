@@ -10,22 +10,40 @@ The hydrology model used by SimplyP builds upon the one described [here](https:/
 
 Please report any bugs or errors either by [submitting a pull request via GitHub](https://github.com/LeahJB/SimplyP/pulls) or by emailing Leah Jackson-Blake (<ljb@niva.no>).
 
+## Installation
+
+If you don't have an up-to-date Python installation, a good option is the [Anaconda Python distribution](https://www.anaconda.com/download/). Model development was carried out using **Python 2.7**.
+
+1. From the Anaconda prompt, create a new clean conda environment for SimplyP
+
+    conda create -n simplyp python=2.7
+    
+2. Activate the new environment
+
+    activate simplyp
+    
+3. Install the Jupyter Notebook
+
+    conda install jupyter=1.0.0 notebook=5.4.1
+    
+4. Download the [SimplyP repository](https://github.com/LeahJB/SimplyP) and unzip it to a location on your system
+
+5. Open the Anaconda command prompt, change directories to the 'SimplyP' folder (the one containing 'setup.py') and run
+
+        python setup.py install    
+    
 ## Running the model
 
-A simple example illustrating how the model can be used is [here](http://nbviewer.jupyter.org/github/LeahJB/SimplyP/blob/Hydrology_Model/SimplyP_v0-1A.ipynb). To install the model and run the example, follow these steps:
+A simple example illustrating how the model can be used is [here](http://nbviewer.jupyter.org/github/LeahJB/SimplyP/blob/Hydrology_Model/SimplyP_v0-1A.ipynb). To run this example:
 
-1. If you don't have an up-to-date Python installation, a good option is the [Anaconda Python distribution](https://www.anaconda.com/download/), which includes all the dependencies required by SimplyP. Model development was carried out using Python 2.7
+1. From the Anaconda prompt, activate your SimplyP environment
 
-2. Download the [SimplyP repository](https://github.com/LeahJB/SimplyP) and unzip it to a location on your system
-
-3. Open the Anaconda command prompt, change directories to the 'SimplyP' folder (the one containing 'setup.py') and run
-
-        python setup.py install
-
-4. From the same directory in the Anaconda command prompt, run
+    activate simplyp
+    
+2. Change to the directory containing `'SimplyP_v0-1A.ipynb'` and run
 
         jupyter notebook
     
-   then click the link to open 'SimplyP_v0-1A.ipynb'. You should now be able to work through the notebook, running the code cells interactively.
+   then click the link to open `'SimplyP_v0-1A.ipynb'`. You should now be able to work through the notebook, running the code cells interactively.
 
-5. When you have finished working with the model, click 'File > Close and Halt' (remember to save any changes first, if desired), then close the browser tab. In the Anaconds command prompt, type 'Ctrl C' to shut down any Python kernels that may still be active, and then close this too.
+3. When you have finished working with the model, click 'File > Close and Halt' (remember to save any changes first, if desired), then close the browser tab. On the `'Home'` tab, click `'Quit'` to shut down any Python kernels that may still be active, and then close this too.
