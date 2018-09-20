@@ -28,7 +28,7 @@ If you don't have an up-to-date Python installation, a good option is the [Anaco
     
 4. Download the [SimplyP repository](https://github.com/LeahJB/SimplyP) and unzip it to a location on your system
 
-5. Open the Anaconda command prompt, change directories to the 'SimplyP' folder (the one containing 'setup.py') and run
+5. From the Anaconda command prompt, change directories to the 'SimplyP' folder (the one containing 'setup.py') and run
 
         python setup.py install    
     
