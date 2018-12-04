@@ -1,0 +1,11 @@
+SimplyP summary of development history
+
+Initial model developed autumn-winter 2015. Released as v0-1A
+
+Changes made to v0-1A 2018 on (currently within the 'Development' folder):
+
+- Repackaged as a module with sub-modules, to split functions into different groups for ease of further development & debugging
+- Added Thornthwaite PET calculation, using functions copied from pyET0. If PET is not a column in the input meteorology data file, then it is calculated. N.B. Thornthwaite requires whole years, so if calculating PET the model can only be run for whole calendar years.
+- Added in in-stream SRP calculation as a simple function of simulated in-stream TDP: SRP = m * TDP, where m is a user-supplied parameter.
+- Added in SRP to the in-stream plots and goodness-of-fit statistics
+- Bug fix in the goodness-of-fit function, it wasn't correctly accounting for variables/reaches without data
