@@ -239,8 +239,8 @@ def ode_f(y, t, ode_params):
     # SEDIMENT
     # Instream suspended sediment (kg; change in kg/day)
     dMsus_dt = ((f_Ar+f_NC_Ar)*Msus_in_i['A']
-	           + (f_IG+f_NC_IG)*Msus_in_i['IG']
-	           + (f_S+f_NC_S)*Msus_in_i['S']      # Terrestrial inputs (kg/day)
+               + (f_IG+f_NC_IG)*Msus_in_i['IG']
+               + (f_S+f_NC_S)*Msus_in_i['S']      # Terrestrial inputs (kg/day)
                 + Msus_US_i                       # Inputs from upstream
                 - (Msus_i/Vr_i)*Qr_i)             # Outflow from the reach;(kg/mm)*(mm/day)
      
@@ -393,8 +393,8 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
 
     # SUB-CATCHMENT/REACH PARAMS
     # Calculate fraction of total area as intensive agricultural land
-    p_SC.loc['f_A'] = p_SC.loc['f_IG']+p_SC.loc['f_Ar']
-    p_SC.loc['f_NC_A'] = p_SC.loc['f_NC_Ar'] + p_SC.loc['f_NC_IG']
+    p_SC.loc['f_A',:] = p_SC.loc['f_IG',:]+p_SC.loc['f_Ar',:]
+    p_SC.loc['f_NC_A',:] = p_SC.loc['f_NC_Ar',:] + p_SC.loc['f_NC_IG',:]
     # Check that land use proportions add to 1 in all sub-catchments; raise an error if not
     for SC in p['SC_list']:
         if (p_SC.loc['f_A',SC]+p_SC.loc['f_S',SC]
@@ -455,7 +455,7 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
     # Hydrol
     VsA0 = p['fc']   # Initial soil volume (mm). Assume it's at field capacity.
     VsS0 = VsA0      # Initial soil vol, semi-natural land (mm). Assumed same as agricultural!!
-    Qg0 = p['beta']*UC_Qinv(p['Qr0_init'], p_SC.ix['A_catch',SC]) # Initial groundwater flow (mm/d)
+    Qg0 = p['beta']*UC_Qinv(p['Qr0_init'], p_SC.loc['A_catch',SC]) # Initial groundwater flow (mm/d)
 
     #-----------------------------------------------------------------------------------------
     # START LOOP OVER SUB-CATCHMENTS
@@ -465,33 +465,33 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
     
         # Soil mass and inactive soil P (kg)
         # Assume inactive soil P is equivalent to semi-natural total soil P for all LU classes
-        Msoil = p['Msoil_m2']*10**6*p_SC.ix['A_catch',SC] # Soil mass (kg): (kgSoil/m2)(m2/km2)km2
+        Msoil = p['Msoil_m2']*10**6*p_SC.loc['A_catch',SC] # Soil mass (kg): (kgSoil/m2)(m2/km2)km2
         P_inactive = 10**-6*p_LU['S']['SoilPconc']*Msoil
 
         # 2) Terrestrial - varying by land use and by sub-catchment
         for LU in ['A','S']:
             # Convert units of EPC0 from mg/l to kg/mm to give initial EPC0
-            p_LU.ix['EPC0_0',LU] = UC_Cinv(p_LU[LU]['EPC0_init_mgl'], p_SC.ix['A_catch',SC])
+            p_LU.loc['EPC0_0',LU] = UC_Cinv(p_LU[LU]['EPC0_init_mgl'], p_SC.loc['A_catch',SC])
             ### CHECK units here! Should same mg/l conc give diff kg/mm conc in diff SCs?????
             
             # Initial labile P. Units: (kgP/mgP)(mgP/kgSoil)kgSoil. Assume Plab0=0 for semi-natural
-            p_LU.ix['Plab0',LU] = 10**-6*(p_LU[LU]['SoilPconc']-p_LU['S']['SoilPconc']) * Msoil
+            p_LU.loc['Plab0',LU] = 10**-6*(p_LU[LU]['SoilPconc']-p_LU['S']['SoilPconc']) * Msoil
             # Initial soil water TDP mass (kg); Units: (kg/mm)*mm
             if LU == 'A':
-                p_LU.ix['TDPs0',LU] = p_LU[LU]['EPC0_0']*VsA0
+                p_LU.loc['TDPs0',LU] = p_LU[LU]['EPC0_0']*VsA0
             else:
-                p_LU.ix['TDPs0',LU] = 0
+                p_LU.loc['TDPs0',LU] = 0
                         
         # Set initial agricultural labile P and soil TDP masses as variables to be updated during
         # looping (assume semi-natural remain at 0 for both)
-        Plab0_A, TDPs0_A = p_LU.ix['Plab0','A'], p_LU.ix['TDPs0','A']
+        Plab0_A, TDPs0_A = p_LU.loc['Plab0','A'], p_LU.loc['TDPs0','A']
         # Initial labile P and soil TDP mass on newly converted land use class
-        if p_SC.ix['NC_type',SC]=='S':
+        if p_SC.loc['NC_type',SC]=='S':
             Plab0_NC = Plab0_A  # New class is SN, from arable, therefore start with arable labile P
             TDPs0_NC = TDPs0_A
         else:
             Plab0_NC = 0.0      # New class is arable, from SN, therefore start with no labile P
-            TDPs0_NC = p_LU.ix['TDPs0','S']
+            TDPs0_NC = p_LU.loc['TDPs0','S']
 
         # Set the value for Kf, the adsorption coefficient (mm/kg soil)
         if p_SU.run_mode == 'cal': # If the calibration period, calculate.
@@ -505,18 +505,18 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
         # Initial in-stream flow
         if SC == 1:
             # Convert units of initial reach Q from m3/s to mm/day
-            Qr0 = UC_Qinv(p['Qr0_init'], p_SC.ix['A_catch',SC])
+            Qr0 = UC_Qinv(p['Qr0_init'], p_SC.loc['A_catch',SC])
         else:
-			# Outflow from the reach upstream from the first time step
-			# N.B. need to convert to cumecs and then back to mm/d. This simplifies
-			# to just the ratio of the SC areas
-			# N.B.2 'Qr' here is Qr_av, the daily mean flow
-            Qr0 = df_R_dict[SC-1].ix[0,'Qr']  * (p_SC.ix['A_catch',SC-1]/p_SC.ix['A_catch',SC])
+            # Outflow from the reach upstream from the first time step
+            # N.B. need to convert to cumecs and then back to mm/d. This simplifies
+            # to just the ratio of the SC areas
+            # N.B.2 'Qr' here is Qr_av, the daily mean flow
+            Qr0 = df_R_dict[SC-1].ix[0,'Qr']  * (p_SC.loc['A_catch',SC-1]/p_SC.loc['A_catch',SC])
         
         # ADMIN
     
         # Dictionary of slopes for different land use classes in the sub-catchment:
-        slope_dict = {'A':p_SC.ix['S_Ar',SC], 'IG':p_SC.ix['S_IG',SC], 'S':p_SC.ix['S_SN',SC]}
+        slope_dict = {'A':p_SC.loc['S_Ar',SC], 'IG':p_SC.loc['S_IG',SC], 'S':p_SC.loc['S_SN',SC]}
               
         # Lists to store output
         output_ODEs = []    # From ode_f function
@@ -540,10 +540,10 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
             else:
                 # Below reach 1, the upstream input is the daily mean flux from up-stream for the
                 # current day
-				# For discharge, need to convert to cumecs (taking into account the area of the upstream
-				# SC), and then back to mm/d (using the area of the current catchment). This simplifies
-				# to just the ratio of the SC areas
-                Qr_US_i = df_R_dict[SC-1].ix[idx,'Qr'] * (p_SC.ix['A_catch',SC-1]/p_SC.ix['A_catch',SC])
+                # For discharge, need to convert to cumecs (taking into account the area of the upstream
+                # SC), and then back to mm/d (using the area of the current catchment). This simplifies
+                # to just the ratio of the SC areas
+                Qr_US_i = df_R_dict[SC-1].ix[idx,'Qr'] * (p_SC.loc['A_catch',SC-1]/p_SC.loc['A_catch',SC])
                 Msus_US_i = df_R_dict [SC-1].ix[idx, 'Msus']
                 TDPr_US_i = df_R_dict [SC-1].ix[idx, 'TDPr']
                 PPr_US_i = df_R_dict [SC-1].ix[idx, 'PPr']
@@ -580,8 +580,8 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
                                            /(2*(365-E_risk_period))))
                             C_cov_dict[s] = C_season
                         # Average the dynamic factor over spring and autumn-sown crops
-                        C_cover = (p_SC.ix['f_spr',SC]*C_cov_dict['spr']
-                                   + (1-p_SC.ix['f_spr',SC])*C_cov_dict['aut'])  
+                        C_cover = (p_SC.loc['f_spr',SC]*C_cov_dict['spr']
+                                   + (1-p_SC.loc['f_spr',SC])*C_cov_dict['aut'])  
                         
                     else:  # If not calculating a dynamic crop cover, then just assign user parameter
                         C_cover = p_LU[LU]['C_cover']
@@ -593,7 +593,7 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
                 
                 # Reach sed input coefficient per land use class (kg/d). See documentation for rationale/source
                 # The factor of 100 is just to reduce the input parameter value by 100 so it is a smaller number
-                Esus_i[LU] = (p['E_M'] * p_SC.ix['S_reach',SC]
+                Esus_i[LU] = (p['E_M'] * p_SC.loc['S_reach',SC]
                               * slope_dict[LU]
                               *C_cover
                               *(1-p_LU[LU]['C_measures']))
@@ -605,7 +605,7 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
             # Or, have a constant EPC0 throughout the model run
             else:
                 EPC0_A_i = p_LU['A']['EPC0_0']
-                if p_SC.ix['NC_type',SC] == 'S': # (little point in a new class with constant EPC0)
+                if p_SC.loc['NC_type',SC] == 'S': # (little point in a new class with constant EPC0)
                     EPC0_NC_i = p_LU['A']['EPC0_0']  # New semi-natural land has agricultural EPC0
                 else:
                     EPC0_NC_i = p_LU['S']['EPC0_0']  # New agricultural has SN EPC0
@@ -620,7 +620,7 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
             # Soil flow, semi-natural (mm/d)
             QsS0 = (VsS0 - p['fc'])/(p_LU['S']['T_s']*(1 + np.exp(p['fc'] - VsS0)))
             Vg0 = Qg0 *p['T_g']     # Groundwater vol (mm)
-            Tr0 = ((p_SC.ix['L_reach',SC])/
+            Tr0 = ((p_SC.loc['L_reach',SC])/
                    (p['a_Q']*(Qr0**p['b_Q'])*(8.64*10**4))) # Reach time constant (days); T=L/aQ^b
             Vr0 = Qr0*Tr0 # Reach volume (V=QT) (mm)
 
@@ -632,15 +632,15 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
             # Today's rainfall, ET & model parameters for input to solver. NB the order must be the
             # same as the order in which they are unpacked within the odeint function
             ode_params = [P, E, mu, Qq_i, Qr_US_i, Esus_i, Msus_US_i, TDPr_US_i, PPr_US_i,
-                          p_SC.ix['f_A',SC], p_SC.ix['f_Ar',SC], p_SC.ix['f_IG',SC], p_SC.ix['f_S',SC],
-                          p_SC.ix['f_NC_A',SC], p_SC.ix['f_NC_Ar',SC], p_SC.ix['f_NC_IG',SC],
-                          p_SC.ix['f_NC_S',SC], p_SC.ix['NC_type',SC],
+                          p_SC.loc['f_A',SC], p_SC.loc['f_Ar',SC], p_SC.loc['f_IG',SC], p_SC.loc['f_S',SC],
+                          p_SC.loc['f_NC_A',SC], p_SC.loc['f_NC_Ar',SC], p_SC.loc['f_NC_IG',SC],
+                          p_SC.loc['f_NC_S',SC], p_SC.loc['NC_type',SC],
                           p['f_quick'], p['alpha'], p['beta'],
-                          p_LU.ix['T_s'], p['T_g'], p['fc'],
-                          p_SC.ix['L_reach',SC], p_SC.ix['S_reach',SC], p_SC.ix['A_catch',SC],
+                          p_LU.loc['T_s',:], p['T_g'], p['fc'],
+                          p_SC.loc['L_reach',SC], p_SC.loc['S_reach',SC], p_SC.loc['A_catch',SC],
                           p['a_Q'], p['b_Q'], p['E_M'], p['k_M'],
-                          p_LU.ix['P_netInput'], EPC0_A_i, EPC0_NC_i, Kf, Msoil,
-                          p_SC.ix['TDPeff',SC], p['TDPg'], p['E_PP'], P_inactive]
+                          p_LU.loc['P_netInput',:], EPC0_A_i, EPC0_NC_i, Kf, Msoil,
+                          p_SC.loc['TDPeff',SC], p['TDPg'], p['E_PP'], P_inactive]
 
             # Solve ODEs
             # N.B. rtol is part of the error tolerance. Default is ~1e-8, but reducing it removes the
@@ -701,21 +701,21 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
                            axis=1)
 
         # Calculate simulated concentrations and add to results
-        df_TC['TDPs_A_mgl'] = UC_C(df_TC['TDPs_A']/df_TC['VsA'], p_SC.ix['A_catch',SC])
-        df_TC['EPC0_A_mgl'] = UC_C(df_TC['EPC0_A_kgmm'], p_SC.ix['A_catch',SC])
+        df_TC['TDPs_A_mgl'] = UC_C(df_TC['TDPs_A']/df_TC['VsA'], p_SC.loc['A_catch',SC])
+        df_TC['EPC0_A_mgl'] = UC_C(df_TC['EPC0_A_kgmm'], p_SC.loc['A_catch',SC])
         df_TC['Plabile_A_mgkg'] = (10**6*df_TC['P_labile_A']/(p['Msoil_m2']
-                                   * 10**6 * p_SC.ix['A_catch',SC]))
+                                   * 10**6 * p_SC.loc['A_catch',SC]))
         # If have some newly-converted land, add results to dataframe
-        if p_SC.ix['NC_type',SC] != 'None':
-            if p_SC.ix['NC_type',SC] == 'A':  # If SN converted to arable, assume arable hydrol
+        if p_SC.loc['NC_type',SC] != 'None':
+            if p_SC.loc['NC_type',SC] == 'A':  # If SN converted to arable, assume arable hydrol
                 df_TC['VsNC'] = df_TC['VsA']
                 df_TC['QsNC'] = df_TC['QsA']
             else:  # If arable converted to SN, assume instantly has semi-natural hydrol
                 df_TC['VsNC'] = df_TC['VsS']
                 df_TC['QsNC'] = df_TC['QsS']
-            df_TC['TDPs_NC_mgl'] = UC_C(df_TC['TDPs_NC']/df_TC['VsNC'], p_SC.ix['A_catch',SC])
+            df_TC['TDPs_NC_mgl'] = UC_C(df_TC['TDPs_NC']/df_TC['VsNC'], p_SC.loc['A_catch',SC])
             df_TC['Plabile_NC_mgkg'] = (10**6*df_TC['P_labile_NC']
-                                                /(p['Msoil_m2']*10**6 *p_SC.ix['A_catch',SC]))
+                                                /(p['Msoil_m2']*10**6 *p_SC.loc['A_catch',SC]))
         # Add snow depth (if calculated)
         if inc_snowmelt == 'y':
             df_TC['D_snow'] = met_df['D_snow_end']
@@ -727,12 +727,12 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
                             'TDPr_instant', 'PPr_instant'], axis=1)
 
         # Calculate concentrations (mg/l); generally from (kg/d)(d/mm)
-        df_R['SS_mgl'] = UC_C(df_R['Msus']/df_R['Qr'],p_SC.ix['A_catch',SC])
-        df_R['TDP_mgl'] = UC_C(df_R['TDPr']/df_R['Qr'],p_SC.ix['A_catch',SC])
-        df_R['PP_mgl'] = UC_C(df_R['PPr']/df_R['Qr'],p_SC.ix['A_catch',SC])
+        df_R['SS_mgl'] = UC_C(df_R['Msus']/df_R['Qr'],p_SC.loc['A_catch',SC])
+        df_R['TDP_mgl'] = UC_C(df_R['TDPr']/df_R['Qr'],p_SC.loc['A_catch',SC])
+        df_R['PP_mgl'] = UC_C(df_R['PPr']/df_R['Qr'],p_SC.loc['A_catch',SC])
         df_R['TP_mgl'] = df_R['TDP_mgl'] + df_R['PP_mgl']
         # Convert flow units from mm/d to m3/s
-        df_R['Sim_Q_cumecs'] = df_R['Qr']*p_SC.ix['A_catch',SC]*1000/86400
+        df_R['Sim_Q_cumecs'] = df_R['Qr']*p_SC.loc['A_catch',SC]*1000/86400
         
         # ------------------------------------------------------------------------------------
         # Sort indices & add to dictionaries; key = sub-catchment/reach number
@@ -1113,28 +1113,28 @@ def goodness_of_fit_stats(p_SU, df_R_dict, obs_dict):
         stats_var_li = ['Q','SS','TDP','PP','TP'] # All vars we're potentially interested in
         stats_df_li = [] # List of dfs with GoF results, one df per reach
         
-		# Start loop over subcatchments
-		for SC in df_R_dict.keys():
+        # Start loop over subcatchments
+        for SC in df_R_dict.keys():
             stats_vars = list(stats_var_li) # List of vars that have enough obs for stats to be calculated
                                             # (amended during looping, below)
             if SC in obs_dict.keys():  # If have any observed data for this sub-catchment
-			
+
                 # Extract data
                 # Simulated
                 df_statsData = df_R_dict[SC][['Sim_Q_cumecs','SS_mgl','TDP_mgl','TP_mgl','PP_mgl']] # Simulated
                 df_statsData.columns = ['Q','SS','TDP','TP','PP']   # Rename columns to match obs
-                
-				# Observed (only for observed data that can be simulated, in case file has other data)
+
+                # Observed (only for observed data that can be simulated, in case file has other data)
                 obs_vars = obs_dict[SC].columns  # Variables with obs in this SC according to input data
                 R_obsVars_forStats = list(set(df_statsData.columns).intersection(obs_vars))        
                 obs_df = obs_dict[SC][R_obsVars_forStats] # Extract observed data
 
                 stats_li = [] # Empty list for storing results for the different variables in this reach
-				
-				# Loop over all possible variables and, if have data for this variable in this SC,
+
+                # Loop over all possible variables and, if have data for this variable in this SC,
                 # and if have enough data (>10 observations per reach), calculate stats
                 for var in stats_var_li:
-					
+
                     # Check if have observed data for this variable
                     if var in obs_df.columns:
                         obs = obs_df[var]
@@ -1154,9 +1154,9 @@ def goodness_of_fit_stats(p_SU, df_R_dict, obs_dict):
                             log_NSE = (1 - (np.sum((tldf['obs']-tldf['sim'])**2)/
                                             np.sum((tldf['obs']-np.mean(tldf['obs']))**2)))
                             spearmans_r_array = tdf.corr(method='spearman')
-                            spearmans_r = spearmans_r_array.ix[0,1]
+                            spearmans_r = spearmans_r_array.iloc[0,1]
                             r2_array = tdf.corr(method='pearson')**2
-                            r2 = r2_array.ix[0,1]
+                            r2 = r2_array.iloc[0,1]
                             pbias = 100*np.sum(tdf['sim']-tdf['obs'])/np.sum(tdf['obs'])
                             RMSD_norm = 100*np.mean(np.abs(tdf['sim']-tdf['obs']))/np.std(tdf['obs'])
 
