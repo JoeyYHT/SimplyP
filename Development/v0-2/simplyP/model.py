@@ -88,22 +88,24 @@ def ode_f(y, t, ode_params):
     dQsS_dt = dQsS_dV*dVsS_dt
         
     # Groundwater equations (units mm or mm/day)
-    dQg_dt = (beta*(f_A*QsA_i + f_S*QsS_i) - Qg_i)/T_g
-    dVg_dt = beta*(f_A*QsA_i + f_S*QsS_i) - Qg_i
+    dQg_dt = (beta*((f_A+f_NC_A)*QsA_i + (f_S+f_NC_S)*QsS_i) - Qg_i)/T_g
+    dVg_dt = beta*((f_A+f_NC_A)*QsA_i + (f_S+f_NC_S)*QsS_i) - Qg_i
      
     # Instream equations (units mm or mm/day)
-    dQr_dt = ((Qq_i + (1-beta)*(f_A*QsA_i + f_S*QsS_i) + Qg_i + Qr_US_i - Qr_i) # Fluxes (mm/d)
+    dQr_dt = ((Qq_i + (1-beta)*((f_A+f_NC_A)*QsA_i + (f_S+f_NC_S)*QsS_i) + Qg_i + Qr_US_i - Qr_i) # Fluxes (mm/d)
               *a_Q*(Qr_i**b_Q)*(8.64*10**4)/((1-b_Q)*(L_reach)))
               # 2nd row is U/L=1/T. Units:(m/s)(s/d)(1/m)
-    dVr_dt = Qq_i + (1-beta)*(f_A*QsA_i + f_S*QsS_i) + Qg_i + Qr_US_i - Qr_i
+    dVr_dt = (Qq_i + (1-beta)*((f_A+f_NC_A)*QsA_i + (f_S+f_NC_S)*QsS_i)+ Qg_i + Qr_US_i - Qr_i)
     dQr_av_dt = Qr_i  # Daily mean flow
         
     # SEDIMENT
     # Instream suspended sediment (kg; change in kg/day)
-    dMsus_dt = (f_Ar*Msus_in_i['A'] + f_IG*Msus_in_i['IG'] + f_S* Msus_in_i['S']  # External inputs (kg/day)
-                + Msus_US_i                                                       # Inputs from upstream
-                - (Msus_i/Vr_i)*Qr_i)                                             # Outflow from the reach;(kg/mm)*(mm/day)
-     
+    dMsus_dt = ((f_Ar+f_NC_Ar)*Msus_in_i['A']
+	           + (f_IG+f_NC_IG)*Msus_in_i['IG']
+	           + (f_S+f_NC_S)*Msus_in_i['S']      # Terrestrial inputs (kg/day)
+                + Msus_US_i                       # Inputs from upstream
+                - (Msus_i/Vr_i)*Qr_i)             # Outflow from the reach;(kg/mm)*(mm/day)     
+
     dMsus_out_dt = Qr_i*Msus_i/Vr_i  # Daily flux of SS
         
     # PHOSPHORUS
@@ -377,8 +379,12 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
         if SC == 1:
             # Convert units of initial reach Q from m3/s to mm/day
             Qr0 = hf.UC_Qinv(p['Qr0_init'], p_SC.ix['A_catch',SC])
-        else:        # Outflow from the reach upstream from the first time step
-            Qr0 = df_R_dict[SC-1].ix[0,'Qr']  # N.B. 'Qr' here is Qr_av, the daily mean flow
+        else:        
+			# Outflow from the reach upstream from the first time step
+			# N.B. need to convert to cumecs and then back to mm/d. This simplifies
+			# to just the ratio of the SC areas
+			# N.B.2 'Qr' here is Qr_av, the daily mean flow
+            Qr0 = df_R_dict[SC-1].ix[0,'Qr']  * (p_SC.ix['A_catch',SC-1]/p_SC.ix['A_catch',SC])
         
         # ADMIN
     
@@ -407,7 +413,10 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
             else:
                 # Below reach 1, the upstream input is the daily mean flux from up-stream for the
                 # current day
-                Qr_US_i = df_R_dict[SC-1].ix[idx,'Qr']
+				# For discharge, need to convert to cumecs (taking into account the area of the upstream
+				# SC), and then back to mm/d (using the area of the current catchment). This simplifies
+				# to just the ratio of the SC areas
+                Qr_US_i = df_R_dict[SC-1].ix[idx,'Qr'] * (p_SC.ix['A_catch',SC-1]/p_SC.ix['A_catch',SC])
                 Msus_US_i = df_R_dict [SC-1].ix[idx, 'Msus']
                 TDPr_US_i = df_R_dict [SC-1].ix[idx, 'TDPr']
                 PPr_US_i = df_R_dict [SC-1].ix[idx, 'PPr']

@@ -208,7 +208,7 @@ def ode_f(y, t, ode_params):
         VsNC_i = VsS_i  # If arable converted to SN, assume has semi-natural hydrol
         QsNC_i = QsS_i
     
-    # Inputs of sediment to the stream. This is a series, one value per LU
+    # Inputs of sediment to the stream. This is a series, one value per 3 LU ('A','S','IG')
     Msus_in_i = Esus_i * Qr_i**k_M
     
     # HYDROLOGY
@@ -226,21 +226,23 @@ def ode_f(y, t, ode_params):
     dQsS_dt = dQsS_dV*dVsS_dt
         
     # Groundwater equations (units mm or mm/day)
-    dQg_dt = (beta*(f_A*QsA_i + f_S*QsS_i) - Qg_i)/T_g
-    dVg_dt = beta*(f_A*QsA_i + f_S*QsS_i) - Qg_i
+    dQg_dt = (beta*((f_A+f_NC_A)*QsA_i + (f_S+f_NC_S)*QsS_i) - Qg_i)/T_g
+    dVg_dt = beta*((f_A+f_NC_A)*QsA_i + (f_S+f_NC_S)*QsS_i) - Qg_i
      
     # Instream equations (units mm or mm/day)
-    dQr_dt = ((Qq_i + (1-beta)*(f_A*QsA_i + f_S*QsS_i) + Qg_i + Qr_US_i - Qr_i) # Fluxes (mm/d)
+    dQr_dt = ((Qq_i + (1-beta)*((f_A+f_NC_A)*QsA_i + (f_S+f_NC_S)*QsS_i) + Qg_i + Qr_US_i - Qr_i) # Fluxes (mm/d)
               *a_Q*(Qr_i**b_Q)*(8.64*10**4)/((1-b_Q)*(L_reach)))
               # 2nd row is U/L=1/T. Units:(m/s)(s/d)(1/m)
-    dVr_dt = Qq_i + (1-beta)*(f_A*QsA_i + f_S*QsS_i) + Qg_i + Qr_US_i - Qr_i
+    dVr_dt = (Qq_i + (1-beta)*((f_A+f_NC_A)*QsA_i + (f_S+f_NC_S)*QsS_i)+ Qg_i + Qr_US_i - Qr_i)
     dQr_av_dt = Qr_i  # Daily mean flow
         
     # SEDIMENT
     # Instream suspended sediment (kg; change in kg/day)
-    dMsus_dt = (f_Ar*Msus_in_i['A'] + f_IG*Msus_in_i['IG'] + f_S* Msus_in_i['S']  # External inputs (kg/day)
-                + Msus_US_i                                                       # Inputs from upstream
-                - (Msus_i/Vr_i)*Qr_i)                                             # Outflow from the reach;(kg/mm)*(mm/day)
+    dMsus_dt = ((f_Ar+f_NC_Ar)*Msus_in_i['A']
+	           + (f_IG+f_NC_IG)*Msus_in_i['IG']
+	           + (f_S+f_NC_S)*Msus_in_i['S']      # Terrestrial inputs (kg/day)
+                + Msus_US_i                       # Inputs from upstream
+                - (Msus_i/Vr_i)*Qr_i)             # Outflow from the reach;(kg/mm)*(mm/day)
      
     dMsus_out_dt = Qr_i*Msus_i/Vr_i  # Daily flux of SS
         
@@ -504,8 +506,12 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
         if SC == 1:
             # Convert units of initial reach Q from m3/s to mm/day
             Qr0 = UC_Qinv(p['Qr0_init'], p_SC.ix['A_catch',SC])
-        else:        # Outflow from the reach upstream from the first time step
-            Qr0 = df_R_dict[SC-1].ix[0,'Qr']  # N.B. 'Qr' here is Qr_av, the daily mean flow
+        else:
+			# Outflow from the reach upstream from the first time step
+			# N.B. need to convert to cumecs and then back to mm/d. This simplifies
+			# to just the ratio of the SC areas
+			# N.B.2 'Qr' here is Qr_av, the daily mean flow
+            Qr0 = df_R_dict[SC-1].ix[0,'Qr']  * (p_SC.ix['A_catch',SC-1]/p_SC.ix['A_catch',SC])
         
         # ADMIN
     
@@ -534,7 +540,10 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
             else:
                 # Below reach 1, the upstream input is the daily mean flux from up-stream for the
                 # current day
-                Qr_US_i = df_R_dict[SC-1].ix[idx,'Qr']
+				# For discharge, need to convert to cumecs (taking into account the area of the upstream
+				# SC), and then back to mm/d (using the area of the current catchment). This simplifies
+				# to just the ratio of the SC areas
+                Qr_US_i = df_R_dict[SC-1].ix[idx,'Qr'] * (p_SC.ix['A_catch',SC-1]/p_SC.ix['A_catch',SC])
                 Msus_US_i = df_R_dict [SC-1].ix[idx, 'Msus']
                 TDPr_US_i = df_R_dict [SC-1].ix[idx, 'TDPr']
                 PPr_US_i = df_R_dict [SC-1].ix[idx, 'PPr']
@@ -1103,48 +1112,63 @@ def goodness_of_fit_stats(p_SU, df_R_dict, obs_dict):
     if p_SU.run_mode != 'scenario':  # If in calibration or validation run mode, calculate stats
         stats_var_li = ['Q','SS','TDP','PP','TP'] # All vars we're potentially interested in
         stats_df_li = [] # List of dfs with GoF results, one df per reach
-        for SC in df_R_dict.keys():
+        
+		# Start loop over subcatchments
+		for SC in df_R_dict.keys():
             stats_vars = list(stats_var_li) # List of vars that have enough obs for stats to be calculated
                                             # (amended during looping, below)
             if SC in obs_dict.keys():  # If have any observed data for this sub-catchment
+			
                 # Extract data
                 # Simulated
                 df_statsData = df_R_dict[SC][['Sim_Q_cumecs','SS_mgl','TDP_mgl','TP_mgl','PP_mgl']] # Simulated
                 df_statsData.columns = ['Q','SS','TDP','TP','PP']   # Rename columns to match obs
-                # Observed
-                obs_vars = obs_dict[SC].columns  # Variables with obs in this SC
-                # If necessary, modify simulated R_vars_to_plot list, if don't have obs
+                
+				# Observed (only for observed data that can be simulated, in case file has other data)
+                obs_vars = obs_dict[SC].columns  # Variables with obs in this SC according to input data
                 R_obsVars_forStats = list(set(df_statsData.columns).intersection(obs_vars))        
-                obs_df = obs_dict[SC][R_obsVars_forStats]         # Extract observed data
+                obs_df = obs_dict[SC][R_obsVars_forStats] # Extract observed data
 
                 stats_li = [] # Empty list for storing results for the different variables in this reach
-                for var in R_obsVars_forStats: # Loop over variables
-                    obs = obs_df[var]
-                    n_obs = sum(obs.notnull()) # Number of observations
-                    if var in obs_df.columns and n_obs>10:  # If have >10 obs for this reach & var
+				
+				# Loop over all possible variables and, if have data for this variable in this SC,
+                # and if have enough data (>10 observations per reach), calculate stats
+                for var in stats_var_li:
+					
+                    # Check if have observed data for this variable
+                    if var in obs_df.columns:
+                        obs = obs_df[var]
+                        n_obs = sum(obs.notnull()) # Number of observations
 
-                        # Get data in nice format for calculating stats
-                        sim = df_statsData[var]
-                        tdf = pd.concat([obs,sim],axis=1) # Temp df of aligned sim & obs data
-                        tdf = tdf.dropna(how='any')       # Strip out any NaNs
-                        tdf.columns = ['obs','sim']       # Re-name the columns
-                        tldf = np.log(tdf)                # Temp df of logged values
+                        if n_obs>10:
 
-                        # Calculate stats
-                        NSE = 1 - (np.sum((tdf['obs']-tdf['sim'])**2)/np.sum((tdf['obs']-np.mean(tdf['obs']))**2))
-                        log_NSE = (1 - (np.sum((tldf['obs']-tldf['sim'])**2)/
-                                        np.sum((tldf['obs']-np.mean(tldf['obs']))**2)))
-                        spearmans_r_array = tdf.corr(method='spearman')
-                        spearmans_r = spearmans_r_array.ix[0,1]
-                        r2_array = tdf.corr(method='pearson')**2
-                        r2 = r2_array.ix[0,1]
-                        pbias = 100*np.sum(tdf['sim']-tdf['obs'])/np.sum(tdf['obs'])
-                        RMSD_norm = 100*np.mean(np.abs(tdf['sim']-tdf['obs']))/np.std(tdf['obs'])
+                            # Get data in nice format for calculating stats
+                            sim = df_statsData[var]
+                            tdf = pd.concat([obs,sim],axis=1) # Temp df of aligned sim & obs data
+                            tdf = tdf.dropna(how='any')       # Strip out NaNs
+                            tdf.columns = ['obs','sim']       # Re-name columns
+                            tldf = np.log(tdf)                # Temp df of logged values
 
-                        # Append to results list
-                        stats_li.append([n_obs, NSE, log_NSE, spearmans_r, r2, pbias, RMSD_norm])
-                    else: # If not enough obs to calculate stats, drop this var from the variables list
+                            # Calculate stats
+                            NSE = 1 - (np.sum((tdf['obs']-tdf['sim'])**2)/np.sum((tdf['obs']-np.mean(tdf['obs']))**2))
+                            log_NSE = (1 - (np.sum((tldf['obs']-tldf['sim'])**2)/
+                                            np.sum((tldf['obs']-np.mean(tldf['obs']))**2)))
+                            spearmans_r_array = tdf.corr(method='spearman')
+                            spearmans_r = spearmans_r_array.ix[0,1]
+                            r2_array = tdf.corr(method='pearson')**2
+                            r2 = r2_array.ix[0,1]
+                            pbias = 100*np.sum(tdf['sim']-tdf['obs'])/np.sum(tdf['obs'])
+                            RMSD_norm = 100*np.mean(np.abs(tdf['sim']-tdf['obs']))/np.std(tdf['obs'])
+
+                            # Append to results list
+                            stats_li.append([n_obs, NSE, log_NSE, spearmans_r, r2, pbias, RMSD_norm])
+
+                        else: # Not enough obs to calculate stats, so drop this var from the variables list
+                            stats_vars.remove(var)
+
+                    else: # No observed data for this variable, so drop from the variables list
                         stats_vars.remove(var)
+
 
                 # Save results in a dataframe for outputing directly to notebook
                 stats_df = pd.DataFrame(data=stats_li, columns=['N obs', 'NSE','log NSE','Spearmans r',
