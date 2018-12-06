@@ -286,10 +286,10 @@ def ode_f(y, t, ode_params):
     dPPr_dt = (E_PP *
                (f_Ar*Msus_in_i['A']*(PlabA_i+P_inactive)/Msoil       # Old arable land
                 + f_IG*Msus_in_i['IG']*(PlabA_i+P_inactive)/Msoil    # Old improved grassland
-                + f_S*Msus_in_i['S']*P_inactive/Msoil)               # Semi-natural land
+                + f_S*Msus_in_i['S']*P_inactive/Msoil               # Semi-natural land
                + f_NC_Ar*Msus_in_i['A']*(PlabNC_i+P_inactive)/Msoil  # Newly-converted arable
                + f_NC_IG*Msus_in_i['IG']*(PlabNC_i+P_inactive)/Msoil # Newly-converted IG
-               + f_NC_S*Msus_in_i['S']*(PlabNC_i+P_inactive)/Msoil   # New semi-natural
+               + f_NC_S*Msus_in_i['S']*(PlabNC_i+P_inactive)/Msoil)   # New semi-natural
                + PPr_US_i                                            # Inputs from upstream 
                - Qr_i*(PPr_i/Vr_i))                                  # Reach outflow (mm/d)(kg/mm)
         

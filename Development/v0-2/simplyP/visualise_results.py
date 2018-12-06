@@ -12,6 +12,7 @@ import os
 # mpl.rcParams['pdf.fonttype'] = 42
 # sn.set_context('notebook') # changes graph font attributes
 sn.set_context(rc={'lines.markeredgewidth': 0.4}) # otherwise seaborn over-writes mpl
+plt.style.use('ggplot')
 
 # Global variables
 _max_yticks = 5
@@ -142,17 +143,20 @@ def plot_terrestrial(p_SU, p_SC, p, df_TC_dict, met_df, fig_display_type):
         plt.savefig(fname_TC1, bbox_inches='tight', dpi=p_SU.output_fig_dpi)
 
     # Plot 2: soil P
-    df_TC_soilP = df_TC_dict[1][TC_f2_vars] # Just plot for 1st sub-catchment
-    TC_fig2_axes = df_TC_soilP.plot(subplots=True, figsize=(w, len(TC_f2_vars)*h+1), legend=False)
-    plt.xlabel("")
-    for i, ax in enumerate(TC_fig2_axes):
-        TC_fig2_axes[i].set_ylabel(TC_ylab_d[TC_f2_vars[i]], fontsize=axlabelsize)
-        ax.yaxis.set_major_locator(MaxNLocator(nbins=_max_yticks, prune='upper'))
-        ax.tick_params(axis='both', which='major', labelsize=ticklabelsize)
-        ax.tick_params(axis='both', which='minor', labelsize=ticklabelsize)
-    if p_SU.plot_TC == 'y':
-        fname_TC2 = os.path.join(p_SU.output_fpath, "Fig_TC_soilP.%s" % p_SU.output_figtype)
-        plt.savefig(fname_TC2, bbox_inches='tight', dpi=p_SU.output_fig_dpi)
+    if p_SU.Dynamic_EPC0 == 'y':
+        df_TC_soilP = df_TC_dict[1][TC_f2_vars] # Just plot for 1st sub-catchment
+        TC_fig2_axes = df_TC_soilP.plot(subplots=True, figsize=(w, len(TC_f2_vars)*h+1), legend=False)
+        plt.xlabel("")
+        for i, ax in enumerate(TC_fig2_axes):
+            TC_fig2_axes[i].set_ylabel(TC_ylab_d[TC_f2_vars[i]], fontsize=axlabelsize)
+            ax.yaxis.set_major_locator(MaxNLocator(nbins=_max_yticks, prune='upper'))
+            ax.tick_params(axis='both', which='major', labelsize=ticklabelsize)
+            ax.tick_params(axis='both', which='minor', labelsize=ticklabelsize)
+        if p_SU.plot_TC == 'y':
+            fname_TC2 = os.path.join(p_SU.output_fpath, "Fig_TC_soilP.%s" % p_SU.output_figtype)
+            plt.savefig(fname_TC2, bbox_inches='tight', dpi=p_SU.output_fig_dpi)
+    
+    # Plot 3: 
 
 def plot_in_stream(p_SU, obs_dict, df_R_dict, fig_display_type):
     """ Plot results from in-stream calculations.

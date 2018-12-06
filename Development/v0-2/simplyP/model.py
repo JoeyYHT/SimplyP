@@ -8,13 +8,15 @@ import os
 import csv
 import numpy as np
 import pandas as pd
-from scipy import optimize
 from scipy.integrate import odeint
+# from scipy import optimize
 ##from scipy.stats import norm
 
 # Import local model modules
 from inputs import snow_hydrol_inputs, daily_PET
 import helper_functions as hf
+
+# ######################################################################################
 
 def ode_f(y, t, ode_params):
     """ Define ODE system.
@@ -37,8 +39,9 @@ def ode_f(y, t, ode_params):
      f_A, f_Ar, f_IG, f_S, f_NC_A, f_NC_Ar, f_NC_IG, f_NC_S, NC_type,
      f_quick, alpha, beta, T_s, T_g, fc, L_reach, A_catch,
      a_Q, b_Q, E_M, k_M, P_netInput, EPC0_A, EPC0_NC, Kf, Msoil, TDPeff,
-     TDPg, E_PP, P_inactive) = ode_params
-        
+     TDPg, E_PP, P_inactive, dynamic_EPC0) = ode_params
+    
+    # -----------------------------------------------------------------------------
     # Unpack initial conditions for this time step
     # Hydrology
     VsA_i = y[0] # Agricultural soil water volume (mm)
@@ -73,101 +76,132 @@ def ode_f(y, t, ode_params):
     # Inputs of sediment to the stream. This is a series, one value per LU
     Msus_in_i = Esus_i * Qr_i**k_M
     
-    # HYDROLOGY
+    # -----------------------------------------------------------------------------
+    # HYDROLOGY EQUATIONS
         
-    # Soil hydrology equations (units mm or mm/day): Agricultural land
+    # Soil hydrology (units mm or mm/day): Agricultural land
     dQsA_dV = ((((VsA_i - fc)*np.exp(fc - VsA_i))/(T_s['A']*((np.exp(fc-VsA_i) + 1)**2)))
                 +(1/(T_s['A']*(np.exp(fc-VsA_i) + 1))))
     dVsA_dt = P*(1-f_quick) - alpha*E*(1 - np.exp(-mu*VsA_i)) - QsA_i  # mu a function of fc
     dQsA_dt = dQsA_dV*dVsA_dt
         
-    # Soil hydrology equations (units mm or mm/day): Semi-natural/other land
+    # Soil hydrology (units mm or mm/day): Semi-natural/other land
     dQsS_dV = ((((VsS_i - fc)*np.exp(fc - VsS_i))/(T_s['S']*((np.exp(fc-VsS_i) + 1)**2)))
                 +(1/(T_s['S']*(np.exp(fc-VsS_i) + 1))))
     dVsS_dt = P*(1-f_quick) - alpha*E*(1 - np.exp(-mu*VsS_i)) - QsS_i
     dQsS_dt = dQsS_dV*dVsS_dt
         
-    # Groundwater equations (units mm or mm/day)
+    # Groundwater (units mm or mm/day)
     dQg_dt = (beta*((f_A+f_NC_A)*QsA_i + (f_S+f_NC_S)*QsS_i) - Qg_i)/T_g
     dVg_dt = beta*((f_A+f_NC_A)*QsA_i + (f_S+f_NC_S)*QsS_i) - Qg_i
-     
-    # Instream equations (units mm or mm/day)
-    dQr_dt = ((Qq_i + (1-beta)*((f_A+f_NC_A)*QsA_i + (f_S+f_NC_S)*QsS_i) + Qg_i + Qr_US_i - Qr_i) # Fluxes (mm/d)
-              *a_Q*(Qr_i**b_Q)*(8.64*10**4)/((1-b_Q)*(L_reach)))
-              # 2nd row is U/L=1/T. Units:(m/s)(s/d)(1/m)
+    
+    # Instream (units mm or mm/day)
+    dQr_dt = ((Qq_i                                 # Quick flow
+               + (1-beta)*((f_A+f_NC_A)*QsA_i       # Soil water in: Arable land
+               + (f_S+f_NC_S)*QsS_i)                # Soil water in: Semi-natural land
+               + Qg_i + Qr_US_i - Qr_i)             # Groundwater in (mm/d)
+              *a_Q*(Qr_i**b_Q)*(8.64*10**4)/((1-b_Q)*(L_reach))) # Outflow. U/L=1/T. Units:(m/s)(s/d)(1/m)
     dVr_dt = (Qq_i + (1-beta)*((f_A+f_NC_A)*QsA_i + (f_S+f_NC_S)*QsS_i)+ Qg_i + Qr_US_i - Qr_i)
     dQr_av_dt = Qr_i  # Daily mean flow
-        
-    # SEDIMENT
+    
+    # -----------------------------------------------------------------------------
+    # SEDIMENT EQUATIONS
     # Instream suspended sediment (kg; change in kg/day)
     dMsus_dt = ((f_Ar+f_NC_Ar)*Msus_in_i['A']
-	           + (f_IG+f_NC_IG)*Msus_in_i['IG']
-	           + (f_S+f_NC_S)*Msus_in_i['S']      # Terrestrial inputs (kg/day)
+                + (f_IG+f_NC_IG)*Msus_in_i['IG']
+                + (f_S+f_NC_S)*Msus_in_i['S']      # Terrestrial inputs (kg/day)
                 + Msus_US_i                       # Inputs from upstream
                 - (Msus_i/Vr_i)*Qr_i)             # Outflow from the reach;(kg/mm)*(mm/day)     
 
-    dMsus_out_dt = Qr_i*Msus_i/Vr_i  # Daily flux of SS
-        
-    # PHOSPHORUS
-       
-    # Agricultural soil labile P mass (kg). Assume semi-natural land has no labile soil P
-    dPlabA_dt = Kf*Msoil*((TDPsA_i/VsA_i)-EPC0_A)  # Net sorption
-      
-    # Newly-conveted soil labile P mass (kg)
-    dPlabNC_dt = Kf*Msoil*((TDPsNC_i/VsNC_i)-EPC0_NC)
-        
+    dMsus_out_dt = (Msus_i/Vr_i)*Qr_i  # Daily flux of SS
+    
+    # -----------------------------------------------------------------------------
+    # PHOSPHORUS EQUATIONS
+          
     # Change in dissolved P mass in agricultural soil water (kg/day)
     # Assume semi-natural land has no dissolved soil water P
-    dTDPsA_dt = ((P_netInput['A']*100*A_catch/365)    # Net inputs (fert+manure-uptake) (kg/ha/yr)
-                 - dPlabA_dt                          # Net sorpn (kg/day)
-                 - (QsA_i*TDPsA_i/VsA_i)              # Outflow via soil water flow (kg/day)
-                 - (Qq_i*TDPsA_i/VsA_i))              # Outflow via quick flow (kg/day)
-       
-    # And in newly converted land class soil water
-    dTDPsNC_dt = ((P_netInput['NC']*100*A_catch/365)       # Net inputs (kg/ha/yr)
-                  - Kf*Msoil*((TDPsNC_i/VsNC_i)-EPC0_NC)   # Net sorpn (kg/day)
-                  - (QsNC_i*TDPsNC_i/VsNC_i)               # Outflow via soil water flow (kg/day)
-                  - (Qq_i*TDPsNC_i/VsNC_i))                # Outflow via quick flow (kg/day)
-       
+    # Only simulate a change if the user has decided to simulate a dynamic EPC0
+    
+    if dynamic_EPC0 == 'y':
+        
+        # Agricultural soil labile P mass (kg). Assume semi-natural land has no labile soil P
+        # Adding the logic in to check for no soil water REALLY speeds up the model, though doesn't
+        # seem to affect the output like I would expect it would (by stopping infs)
+        if VsA_i > 0:
+            dPlabA_dt = Kf*Msoil*((TDPsA_i/VsA_i)-EPC0_A)  # Net sorption
+        else:
+            dPlabA_dt = 0.
+
+        # Newly-conveted soil labile P mass (kg)
+        if VsNC_i > 0:
+            dPlabNC_dt = Kf*Msoil*((TDPsNC_i/VsNC_i)-EPC0_NC)
+        else:
+            dPlabNC_dt = 0.
+        
+        dTDPsA_dt = ((P_netInput['A']*100*A_catch/365)    # Net inputs (fert+manure-uptake) (kg/ha/yr)
+                     - dPlabA_dt                          # Net sorpn (kg/day)
+                     - QsA_i*TDPsA_i/VsA_i  # Soil water outflow (kg/day)
+                     - Qq_i*TDPsA_i/VsA_i)   # Quick flow out (kg/day)
+
+        # And in newly converted land class soil water
+        dTDPsNC_dt = ((P_netInput['NC']*100*A_catch/365)     # Net inputs (kg/ha/yr)
+                      - dPlabNC_dt                           # Net sorpn (kg/day)
+                      - QsNC_i*TDPsNC_i/VsNC_i               # Outflow via soil water flow (kg/day)
+                      - Qq_i*TDPsNC_i/VsNC_i)                # Outflow via quick flow (kg/day)
+        
+        # If dynamic, agricultural soil water TDP concentration is calculated
+        agri_soilwater_P_conc = TDPsA_i/VsA_i
+        NC_soilwater_P_conc = TDPsNC_i/VsNC_i
+    
+    # If no dynamic EPC0, soil labile P and soil water TDP are constant over time
+    else:
+        dPlabA_dt = 0.
+        dPlabNC_dt = 0.
+        dTDPsA_dt = 0.
+        dTDPsNC_dt = 0.
+        agri_soilwater_P_conc = EPC0_A # Soil water TDP concentration constant at EPC0
+        NC_soilwater_P_conc = EPC0_NC
+    
     # Change in in-stream TDP mass (kg/d)
     # Semi-natural inputs not specified as assume 0 for soil water & quick flow
-    dTDPr_dt = ((1-beta)*f_A*QsA_i*(TDPsA_i/VsA_i)          # Soil input, old agri. Units:(mm/d)(kg/mm)
-                + (1-beta)*f_NC_A*QsNC_i*(TDPsNC_i/VsNC_i)  # Soil input, new agri land
-                + (1-beta)*f_NC_S*QsNC_i*(TDPsNC_i/VsNC_i)  # Soil input, new SN land
-                + f_A*Qq_i*(TDPsA_i/VsA_i)                  # Quick input, old agri. Units:(mm/d)(kg/mm)
-                + f_NC_A*Qq_i*(TDPsNC_i/VsNC_i)             # Quick input, newly-converted agri
-                + f_NC_S*Qq_i*(TDPsNC_i/VsNC_i)             # Quick inputs, newly-converted SN
+    dTDPr_dt = ((1-beta)*f_A*QsA_i*(agri_soilwater_P_conc)  # Soilwater, old agri. (mm/d)(kg/mm)
+                + (1-beta)*f_NC_A*QsNC_i*(NC_soilwater_P_conc)  # Soil input, new agri land
+                + (1-beta)*f_NC_S*QsNC_i*(NC_soilwater_P_conc)  # Soil input, new SN land
+                + f_A*Qq_i*(agri_soilwater_P_conc)          # Quick input, old agri. Units:(mm/d)(kg/mm)
+                + f_NC_A*Qq_i*(NC_soilwater_P_conc)             # Quick input, newly-converted agri
+                + f_NC_S*Qq_i*(NC_soilwater_P_conc)             # Quick inputs, newly-converted SN
                 + Qg_i * hf.UC_Cinv(TDPg,A_catch)           # Groundwater input. Units: (mm/d)(kg/mm)
                 + TDPeff                                    # Effluent input (kg/day)
                 + TDPr_US_i                                 # Inputs from upstream 
                 - Qr_i*(TDPr_i/Vr_i))                       # Reach outflow. Units: (mm/d)(kg/mm)
-        
-    dTDPr_out_dt = Qr_i*TDPr_i/Vr_i  # Daily TDP flux out of reach. Units: (mm/d)(kg/mm)=kg/d
+
+    dTDPr_out_dt = Qr_i*(TDPr_i/Vr_i)  # Daily TDP flux out of reach. Units: (mm/d)(kg/mm)=kg/d
         
     # Change in in-stream PP mass (kg/d)
-    dPPr_dt = (E_PP *
-               (f_Ar*Msus_in_i['A']*(PlabA_i+P_inactive)/Msoil       # Old arable land
-                + f_IG*Msus_in_i['IG']*(PlabA_i+P_inactive)/Msoil    # Old improved grassland
-                + f_S*Msus_in_i['S']*P_inactive/Msoil)               # Semi-natural land
-               + f_NC_Ar*Msus_in_i['A']*(PlabNC_i+P_inactive)/Msoil  # Newly-converted arable
-               + f_NC_IG*Msus_in_i['IG']*(PlabNC_i+P_inactive)/Msoil # Newly-converted IG
-               + f_NC_S*Msus_in_i['S']*(PlabNC_i+P_inactive)/Msoil   # New semi-natural
-               + PPr_US_i                                            # Inputs from upstream 
-               - Qr_i*(PPr_i/Vr_i))                                  # Reach outflow (mm/d)(kg/mm)
+    dPPr_dt = (E_PP *(f_Ar*Msus_in_i['A']*(PlabA_i+P_inactive)/Msoil       # Old arable land
+                      + f_IG*Msus_in_i['IG']*(PlabA_i+P_inactive)/Msoil    # Old improved grassland
+                      + f_S*Msus_in_i['S']*P_inactive/Msoil                # Semi-natural land
+                      + f_NC_Ar*Msus_in_i['A']*(PlabNC_i+P_inactive)/Msoil  # Newly-converted arable
+                      + f_NC_IG*Msus_in_i['IG']*(PlabNC_i+P_inactive)/Msoil # Newly-converted IG
+                      + f_NC_S*Msus_in_i['S']*(PlabNC_i+P_inactive)/Msoil)  # New semi-natural
+              + PPr_US_i                                                    # Inputs from upstream 
+              - Qr_i*(PPr_i/Vr_i))                                          # Reach outflow (mm/d)(kg/mm)                           
         
     dPPr_out_dt = Qr_i*PPr_i/Vr_i  # Daily mean flux
-        
+    
+    # -----------------------------------------------------------------------------
     # Add results of equations to an array
     res = np.array([dVsA_dt, dQsA_dt, dVsS_dt, dQsS_dt, dVg_dt, dQg_dt, dVr_dt, dQr_dt,
                     dQr_av_dt, dMsus_dt, dMsus_out_dt, dPlabA_dt, dPlabNC_dt, dTDPsA_dt,
                     dTDPsNC_dt, dTDPr_dt, dTDPr_out_dt, dPPr_dt, dPPr_out_dt])
+    
     return res
 
 # #################################################################################################
 
 # Main model function (calls ODE function)
     
-def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, step_len=1):
+def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
     """ Simple hydrology, sediment and phosphorus model, with processes varying by land use, sub-catchment
         and reach.
 
@@ -199,9 +233,6 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
                         Row indices: 'Dynamic_EPC0', 'Dynamic_erodibility', 'Dynamic_effluent_inputs',
                                      'Dynamic_terrestrialP_inputs'. 'y' or 'n'
                         **NB only the first 2 are implemented in the model at the moment**
-       
-        inc_snowmelt    Str. 'y' or 'n'. Whether to convert input precipitation timeseries to rainfall
-                        and snowmelt using the snow accumulation & melt function, hydrol_inputs()
 
         step_len        Length of each step in the input dataset (days). Default=1
 
@@ -281,19 +312,6 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
             NC_type = 'None'
         p_SC.loc['NC_type',SC] = NC_type
     
-    ##########################################################################################
-    # If desired, run snow module
-    if inc_snowmelt == 'y':
-        met_df = snow_hydrol_inputs(p['D_snow_0'], p['f_DDSM'], met_df)
-    else:
-        met_df.rename(columns={'Pptn':'P'}, inplace=True)
-        
-    ##########################################################################################
-    # If PET isn't in the input met data, calculate it using Thornthwaite's 1948 equation
-    if 'PET' not in met_df.columns:
-        met_df = daily_PET(latitude=p['latitude'], met_df=met_df)
-    
-    #########################################################################################
     # SETUP ADMIN FOR LOOPING OVER TIME STEPS AND SUB-CATCHMENTS
     
     # Dictionary to store results for different sub-catchments
@@ -317,23 +335,31 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
         d_dict = {'start':p['d_maxE_%s' %season]-E_risk_period/2.,
                   'end':p['d_maxE_%s' %season]+E_risk_period/2.,
                   'mid':p['d_maxE_%s' %season]}
-        d_S = pd.Series(d_dict)
-        Erisk_dict[season] = d_S
+        Erisk_dict[season] = pd.Series(d_dict)
         
     #-----------------------------------------------------------------------------------------
-    # INITIAL CONDITIONS AND DERIVED PARAMETERS THAT DON'T VARY BY SUB-CATCHMENT
+    # INITIAL CONDITIONS THAT DON'T VARY BY SUB-CATCHMENT
     # Unpack user-supplied initial conditions, calculate any others, convert units
     
     # 1) Terrestrial - constant over LU and SC
-    # Hydrol
+    
+    # Soil water volume (agricultural and semi-natural; mm)
     VsA0 = p['fc']   # Initial soil volume (mm). Assume it's at field capacity.
     VsS0 = VsA0      # Initial soil vol, semi-natural land (mm). Assumed same as agricultural!!
+    
+    # Soilwater flow (agricultural and semi-natural; mm/day)
+    QsA0 = (VsA0 - p['fc'])/(p_LU['A']['T_s']*(1 + np.exp(p['fc'] - VsA0)))
+    QsS0 = (VsS0 - p['fc'])/(p_LU['S']['T_s']*(1 + np.exp(p['fc'] - VsS0)))
+    
+    # Groundwater flow and volume (mm/d, mm)
     Qg0 = p['beta']*hf.UC_Qinv(p['Qr0_init'], p_SC.loc['A_catch',SC]) # Initial groundwater flow (mm/d)
+    Vg0 = Qg0 *p['T_g']     # Groundwater vol (mm)
 
-    #-----------------------------------------------------------------------------------------
+    #################################################################################################
     # START LOOP OVER SUB-CATCHMENTS
     for SC in p['SC_list']:
         
+        # ---------------------------------------------------------------------------------------
         # INITIAL CONDITIONS THAT VARY BY SUB-CATCHMENT
     
         # Soil mass and inactive soil P (kg)
@@ -345,7 +371,6 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
         for LU in ['A','S']:
             # Convert units of EPC0 from mg/l to kg/mm to give initial EPC0
             p_LU.loc['EPC0_0',LU] = hf.UC_Cinv(p_LU[LU]['EPC0_init_mgl'], p_SC.loc['A_catch',SC])
-            ### CHECK units here! Should same mg/l conc give diff kg/mm conc in diff SCs?????
             
             # Initial labile P. Units: (kgP/mgP)(mgP/kgSoil)kgSoil. Assume Plab0=0 for semi-natural
             p_LU.loc['Plab0',LU] = 10**-6*(p_LU[LU]['SoilPconc']-p_LU['S']['SoilPconc']) * Msoil
@@ -380,12 +405,18 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
             # Convert units of initial reach Q from m3/s to mm/day
             Qr0 = hf.UC_Qinv(p['Qr0_init'], p_SC.loc['A_catch',SC])
         else:        
-			# Outflow from the reach upstream from the first time step
-			# N.B. need to convert to cumecs and then back to mm/d. This simplifies
-			# to just the ratio of the SC areas
-			# N.B.2 'Qr' here is Qr_av, the daily mean flow
+            # Outflow from the reach upstream from the first time step
+            # N.B. need to convert to cumecs and then back to mm/d. This simplifies
+            # to just the ratio of the SC areas
+            # N.B.2 'Qr' here is Qr_av, the daily mean flow
             Qr0 = df_R_dict[SC-1].ix[0,'Qr']  * (p_SC.loc['A_catch',SC-1]/p_SC.loc['A_catch',SC])
+            
+        # Initial reach volume (mm)
+        Tr0 = ((p_SC.loc['L_reach',SC])/
+               (p['a_Q']*(Qr0**p['b_Q'])*(8.64*10**4))) # Reach time constant (days); T=L/aQ^b
+        Vr0 = Qr0*Tr0 # (V=QT)
         
+        # --------------------------------------------------------------------------------------
         # ADMIN
     
         # Dictionary of slopes for different land use classes in the sub-catchment:
@@ -395,11 +426,11 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
         output_ODEs = []    # From ode_f function
         output_nonODE = []  # Will include: Qq, Qr_US (latter for checking only)        
         
-        #-------------------------------------------------------------------------------------
+        # #####################################################################################
         # START LOOP OVER MET DATA
         for idx in range(len(met_df)):
 
-            # Get precipitation and evapotranspiration for this day
+            # Get hydrological inputs and evapotranspiration for this day
             P = met_df.ix[idx, 'P']
             E = met_df.ix[idx, 'PET']
 
@@ -413,9 +444,9 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
             else:
                 # Below reach 1, the upstream input is the daily mean flux from up-stream for the
                 # current day
-				# For discharge, need to convert to cumecs (taking into account the area of the upstream
-				# SC), and then back to mm/d (using the area of the current catchment). This simplifies
-				# to just the ratio of the SC areas
+                # For discharge, need to convert to cumecs (taking into account the area of the upstream
+                # SC), and then back to mm/d (using the area of the current catchment). This simplifies
+                # to just the ratio of the SC areas
                 Qr_US_i = df_R_dict[SC-1].ix[idx,'Qr'] * (p_SC.loc['A_catch',SC-1]/p_SC.loc['A_catch',SC])
                 Msus_US_i = df_R_dict [SC-1].ix[idx, 'Msus']
                 TDPr_US_i = df_R_dict [SC-1].ix[idx, 'TDPr']
@@ -486,56 +517,54 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
             output_nonODE_i = [Qq_i,EPC0_A_i, EPC0_NC_i,C_cover_A ]
             output_nonODE.append(output_nonODE_i)
 
-            # Calculate additional initial conditions from user-input values/ODE solver output
-            # Soil flow, agricultural (mm/d)
-            QsA0 = (VsA0 - p['fc'])/(p_LU['A']['T_s']*(1 + np.exp(p['fc'] - VsA0)))
-            # Soil flow, semi-natural (mm/d)
-            QsS0 = (VsS0 - p['fc'])/(p_LU['S']['T_s']*(1 + np.exp(p['fc'] - VsS0)))
-            Vg0 = Qg0 *p['T_g']     # Groundwater vol (mm)
-            Tr0 = ((p_SC.loc['L_reach',SC])/
-                   (p['a_Q']*(Qr0**p['b_Q'])*(8.64*10**4))) # Reach time constant (days); T=L/aQ^b
-            Vr0 = Qr0*Tr0 # Reach volume (V=QT) (mm)
-
+            # ########################################################################################
             # Vector of initial conditions for start of time step (assume 0 for initial Qr_av,
             # Msus_out, TDPr_out and PPr_out, the mass or vol of water lost per time step
             y0 = [VsA0, QsA0, VsS0, QsS0, Vg0, Qg0, Vr0, Qr0, 0.0, Msus0, 0.0, Plab0_A, Plab0_NC,
                   TDPs0_A, TDPs0_NC, TDPr0, 0.0, PPr0, 0.0]
 
-            # Today's rainfall, ET & model parameters for input to solver. NB the order must be the
+            # Today's hydrol inputs, PET & model parameters for input to solver. NB the order must be the
             # same as the order in which they are unpacked within the odeint function
             ode_params = [P, E, mu, Qq_i, Qr_US_i, Esus_i, Msus_US_i, TDPr_US_i, PPr_US_i,
                           p_SC.loc['f_A',SC], p_SC.loc['f_Ar',SC], p_SC.loc['f_IG',SC], p_SC.loc['f_S',SC],
                           p_SC.loc['f_NC_A',SC], p_SC.loc['f_NC_Ar',SC], p_SC.loc['f_NC_IG',SC],
                           p_SC.loc['f_NC_S',SC], p_SC.loc['NC_type',SC],
                           p['f_quick'], p['alpha'], p['beta'],
-                          p_LU.loc['T_s',:], p['T_g'], p['fc'],
+                          p_LU.loc['T_s',['A','S']], p['T_g'], p['fc'],
                           p_SC.loc['L_reach',SC], p_SC.loc['A_catch',SC],
                           p['a_Q'], p['b_Q'], p['E_M'], p['k_M'],
-                          p_LU.loc['P_netInput',:], EPC0_A_i, EPC0_NC_i, Kf, Msoil,
-                          p_SC.loc['TDPeff',SC], p['TDPg'], p['E_PP'], P_inactive]
+                          p_LU.loc['P_netInput',['A','NC']], EPC0_A_i, EPC0_NC_i, Kf, Msoil,
+                          p_SC.loc['TDPeff',SC], p['TDPg'], p['E_PP'], P_inactive,
+                          dynamic_options['Dynamic_EPC0']]
 
-            # Solve ODEs
+            # Solve ODEs. Returns: y: array of results evaluated at the time points of interest.
             # N.B. rtol is part of the error tolerance. Default is ~1e-8, but reducing it removes the
             # risk of the solver exiting before finding a solution due to reaching max number of steps
             # (in which case can get odd output). Also speeds up runtime.
-            # This issue can also be circumvented by increasing the max. number of steps to 5000.
+            # This issue can also be circumvented by increasing the max. number of steps.
             y, output_dict = odeint(ode_f, y0, ti, args=(ode_params,),full_output=1, rtol=0.01, mxstep=5000)
 
             # Extract values for the end of the step
             res = y[1]
-            res[res<0] = 0 # Numerical errors may result in very tiny values <0; set these back to 0
+            res[res<0] = 0
             output_ODEs.append(res)
 
             # Update initial conditions for next step (for Vs, Qg0, Qr0, Msus0, Plab0, TDPs0)
-            VsA0 = res[0]  # QsA0 would be res[1]
-            VsS0 = res[2]  # QsS0 would be res[3], Vg0 would be res[4] (but calculate from Qg0)
+            VsA0 = res[0]
+            QsA0 = res[1]
+            VsS0 = res[2]
+            QsS0 = res[3]
+            
+            # Vg0 = res[4], but it's calculated from Qg0 to take into account the minimum flow
             # Re-set groundwater to user-supplied minimum flow at start of each time step. Non-ideal
             # solution to the problem of maintaining stream flow during baseflow conditions.
             if p['Qg_min'] > res[5]:
                 Qg0 = p['Qg_min']
             else:
                 Qg0 = res[5]
-            # Vr0 would be res[6], but calculate from Qr0 instead
+            Vg0 = Qg0 *p['T_g']
+            
+            Vr0 = res[6]
             Qr0 = res[7]       # Qr_av_0 would be res[8], but it's always 0
             Msus0 = res[9]     # Msus_out_0 would be res[10]
             Plab0_A = res[11]
@@ -590,7 +619,7 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
             df_TC['Plabile_NC_mgkg'] = (10**6*df_TC['P_labile_NC']
                                                 /(p['Msoil_m2']*10**6 *p_SC.loc['A_catch',SC]))
         # Add snow depth (if calculated)
-        if inc_snowmelt == 'y':
+        if p_SU.inc_snowmelt == 'y':
             df_TC['D_snow'] = met_df['D_snow_end']
 
         # 2) In-stream

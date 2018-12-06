@@ -21,6 +21,8 @@ def read_input_data(params_fpath):
     
     Args:
         params_fpath: Raw str. Path to completed Excel input template.
+                inc_snowmelt    Str. 'y' or 'n'. Whether to convert input precipitation timeseries to rainfall
+                        and snowmelt using the snow accumulation & melt function, hydrol_inputs()
         
     Returns:
         Tuple (p_SU, dynamic_options, p, p_LU, p_SC, met_df, obs_dict).
@@ -30,9 +32,11 @@ def read_input_data(params_fpath):
         p:               Series. Constant parameters
         p_LU:            Series. Land use parameters
         p_SC:            Series. sub-catchment and reach parameters
-        met_df:          Dataframe. Meteorological data
+        met_df:          Dataframe. Meteorological data and data derived from it
+                         (if desired, including snow accumulation & melt, PET)
         obs_dict:        Dict. Observed discharge and chemistry data
     """
+    # ----------------------------------------------------------------------------------------
     # USER SET-UP PARAMETERS
     p_SU = pd.read_excel(params_fpath, sheet_name='Setup', index_col=0, usecols="A,C")
     p_SU = p_SU['Value'] # Convert to a series
@@ -42,6 +46,7 @@ def read_input_data(params_fpath):
     dynamic_options = p_SU[['Dynamic_EPC0', 'Dynamic_effluent_inputs',
                             'Dynamic_terrestrialP_inputs','Dynamic_erodibility']]
 
+    # ----------------------------------------------------------------------------------------
     # MODEL PARAMETERS
 
     # CONSTANT PARAMS: Parameters that're constant over land use, sub-catchment or reach.
@@ -62,11 +67,25 @@ def read_input_data(params_fpath):
         usecols_str = "B,E:%s" %lastCol
     p_SC = pd.read_excel(params_fpath, sheet_name='SC_reach', index_col=0, usecols=usecols_str)
 
+    # -----------------------------------------------------------------------------------------
     # MET DATA
     # Assume constant met data over the catchment. This could be amended in the future.
     met_df = pd.read_csv(p_SU.metdata_fpath, parse_dates=True, dayfirst=True, index_col=0)
     met_df = met_df.truncate(before=p_SU.st_dt, after=p_SU.end_dt)  # Truncate to the desired period
-
+    
+    # -----------------------------------------------------------------------------------------
+    # If desired, run SNOW MODULE
+    if p_SU.inc_snowmelt == 'y':
+        met_df = snow_hydrol_inputs(p['D_snow_0'], p['f_DDSM'], met_df)
+    else:
+        met_df.rename(columns={'Pptn':'P'}, inplace=True)
+    
+    # -----------------------------------------------------------------------------------------
+    # If PET isn't in the input met data, calculate it using Thornthwaite's 1948 equation
+    if 'PET' not in met_df.columns:
+        met_df = daily_PET(latitude=p['latitude'], met_df=met_df)
+    
+    # -----------------------------------------------------------------------------------------
     # OBSERVATIONS
     # Read from excel files (one for each of Q and chem). Excel files should have one sheet per
     # sub-catchment/reach, numbered 1, 2, etc. Obs for each reach are read into a dataframe.
@@ -92,7 +111,8 @@ def read_input_data(params_fpath):
         if df_li:  # If there's something in the list, this returns true; otherwise false
             obs_df = pd.concat(df_li, axis=1)  # If have both Q & chem data, combine into one df
             obs_dict[SC] = obs_df  # Add to dictionary
-       
+    
+    # -----------------------------------------------------------------------------------------   
     return (p_SU, dynamic_options, p, p_LU, p_SC, met_df, obs_dict)
 
 #########################################################################################
