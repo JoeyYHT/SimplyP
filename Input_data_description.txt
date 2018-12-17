@@ -1,9 +1,72 @@
-Observations and input data are automatically truncated to the start and end dates given in the parameter setup sheet
-Observed variables are automatically discarded if they aren't one of [list of obs]
+SimplyP v0.1 and v0.2, description of inputs data files
 
-# OBSERVATIONS
-# Read from excel files (one for each of Q and chem). Excel files should have one sheet per
-# sub-catchment/reach, numbered 1, 2, etc.
-# Obs for each reach are read into a dataframe.
-# Each reach is stored as a separate df in obs_dict (key is the reach number, as an integer).
-# Units of Q: m3/s, Units of chemistry: mg/l
+Last modified 17/12/2018
+Leah Jackson-Blake
+
+########################################################################
+Formatting:
+- Dates should be in day-first European format, i.e. DD/MM/YYYY
+- Decimal separators: points are expected, not commas. I'll add another setup parameter soon to allow for semi-colon separated files with decimal commas. Get in touch if you need that doing now.
+
+########################################################################
+1) Model parameters:
+
+These are defined in an Excel sheet. See the Example_Data file for a template.
+
+The file can have any name. The path to the file is entered at the top of the Jupyter notebook used to run the model.
+
+The sheet names must not change, nor must the parameter names within the 'Param' column.
+
+See the 'readme' on the first sheet of the parameter file for more information.
+
+########################################################################
+2) Meteorological data to drive the model
+
+This should be stored in csv format with column headings:
+
+	Date (this must be the first column)
+	Then in any order: Precipitation
+					   T_air
+	Optionally also:   PET
+
+Description of variables:
+	Precipitation: total precipitation (rain plus snow), units mm
+	PET: potential evapotranspiration, units mm
+	T_air: air temperature, units degrees Celsius.
+
+If the time series in this file is longer than the period defined by the start and end dates in the parameter file ('Setup' sheet, parameters 'st_dt' and 'end_dt'), then it will be automatically truncated to coincide with the desired start and end dates. N.B. it must cover the period defined by the start and end dates.
+
+If PET data is not provided, it will be calculated by the model using the Thornthwaite method. Note that this method may provide biased results, but has been chosen as a first approximation of PET as it is simple to implement and has low data requirements.
+
+See the Example_Data file for a template
+
+########################################################################
+3) Optionally: observed discharge and water chemistry data
+
+In Excel files. Create separate files for discharge and water chemistry data.
+Files can have any name (the path to the files is entered by the user in the parameter 'Setup' sheet)
+Within the files: insert data for separate reaches on separate sheets, and number the sheets with the reach number (e.g. 1, 2,...) ONLY (the model code expects sheet names to be integers, and will return an error if not)
+
+Each sheet within the file should have the headings (excluding the comments in brackets):
+
+Discharge data:
+	Date (this must be the first column)
+	Q
+
+Water chemistry data:
+	Date (this must be the first column)
+	TP, PP, TDP, SRP, SS (optional; include any of these you have data for)
+	
+where:
+	Q is the discharge (m3/s)
+	TP is total P (mg/l)
+	PP is particulate P (mg/l)
+	TDP is total dissolved P (mg/l)
+	SRP is soluble reactive P (mg/l)
+	SS is suspended sediment (mg/l)
+
+Any columns in the sheet with  names aside from these will not be read in (but need not be deleted from the file)
+	
+As with the meteorological input data, observations are automatically truncated to the start and end dates given in the parameter setup sheet
+
+See the Example_Data file for templates
