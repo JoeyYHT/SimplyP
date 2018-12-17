@@ -448,19 +448,19 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
         Erisk_dict[season] = d_S
         
     #-----------------------------------------------------------------------------------------
-    # INITIAL CONDITIONS AND DERIVED PARAMETERS THAT DON'T VARY BY SUB-CATCHMENT
-    # Unpack user-supplied initial conditions, calculate any others, convert units
-    
-    # 1) Terrestrial - constant over LU and SC
-    # Hydrol
-    VsA0 = p['fc']   # Initial soil volume (mm). Assume it's at field capacity.
-    VsS0 = VsA0      # Initial soil vol, semi-natural land (mm). Assumed same as agricultural!!
-    Qg0 = p['beta']*UC_Qinv(p['Qr0_init'], p_SC.loc['A_catch',SC]) # Initial groundwater flow (mm/d)
-
-    #-----------------------------------------------------------------------------------------
     # START LOOP OVER SUB-CATCHMENTS
     for SC in p['SC_list']:
         
+        #-----------------------------------------------------------------------------------------
+        # INITIAL CONDITIONS AND DERIVED PARAMETERS THAT DON'T VARY BY SUB-CATCHMENT
+        # Unpack user-supplied initial conditions, calculate any others, convert units
+
+        # 1) Terrestrial - constant over LU and SC
+        # Hydrol
+        VsA0 = p['fc']   # Initial soil volume (mm). Assume it's at field capacity.
+        VsS0 = VsA0      # Initial soil vol, semi-natural land (mm). Assumed same as agricultural!!
+        Qg0 = p['beta']*UC_Qinv(p['Qr0_init'], p_SC.loc['A_catch',SC]) # Initial groundwater flow (mm/d)
+
         # INITIAL CONDITIONS THAT VARY BY SUB-CATCHMENT
     
         # Soil mass and inactive soil P (kg)

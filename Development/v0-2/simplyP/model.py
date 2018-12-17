@@ -27,7 +27,7 @@ def ode_f(y, t, ode_params):
         params: Tuple of input values & model parameter values
 
     Returns:
-        Array of values for end of time step
+        Array of gradients for end of time step
 
             [dVsA_dt, dQsA_dt, dVsS_dt, dQsS_dt, dVg_dt, dQg_dt, dVr_dt, dQr_dt, dQr_av_dt, dMsus_dt,
              dMsus_out_dt, dPlabA_dt, dPlabNC_dt, dTDPsA_dt, dTDPsNC_dt, dTDPr_dt, dTDPr_out_dt,
@@ -191,17 +191,17 @@ def ode_f(y, t, ode_params):
     
     # -----------------------------------------------------------------------------
     # Add results of equations to an array
-    res = np.array([dVsA_dt, dQsA_dt, dVsS_dt, dQsS_dt, dVg_dt, dQg_dt, dVr_dt, dQr_dt,
+    gradients = np.array([dVsA_dt, dQsA_dt, dVsS_dt, dQsS_dt, dVg_dt, dQg_dt, dVr_dt, dQr_dt,
                     dQr_av_dt, dMsus_dt, dMsus_out_dt, dPlabA_dt, dPlabNC_dt, dTDPsA_dt,
                     dTDPsNC_dt, dTDPr_dt, dTDPr_out_dt, dPPr_dt, dPPr_out_dt])
     
-    return res
+    return gradients
 
 # #################################################################################################
 
 # Main model function (calls ODE function)
     
-def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
+def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
     """ Simple hydrology, sediment and phosphorus model, with processes varying by land use, sub-catchment
         and reach.
 
@@ -213,6 +213,13 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
         met_df          Dataframe. Must contain columns 'P', the precipitation+snowmelt input to
                         the soil box and either 'PET' (potential evapotranspiration, units mm/day)
                         or 'T_air' (air temperature, in which case PET will be estimated)
+        
+        p_struc         Dataframe. Parameters defining the spatial arrangement of the sub-catchments/
+                        reaches relative to one another.
+                        Index: reach number (integer)
+                        Columns: 'Upstream_SCs': list of reaches directly upstream of current reach)
+                                 'In_final_flux?': Whether to include reach in flux calculation to a
+                                                   receiving waterbody. If all 0s, no sum calculated
 
         p               Series. Parameter values which don't vary by land use (index: param name)
 
@@ -220,7 +227,8 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
         
         p_LU            Dataframe. Parameter values which do vary by land use
                         Index:   parameter name
-                        Columns: 'A', 'S', 'IG' (agricultural, semi-natural, improved grassland)
+                        Columns: 'A', 'S', 'IG', 'NC' (agricultural, semi-natural, improved grassland,
+                                  newly-converted agricultural or semi-natural land)
                                  IG only has values for parameter 'E_land' (soil erodibility), in
                                  which case value in 'A' column is for arable land
         
@@ -261,11 +269,21 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
             dataframe per sub-catchment (dictionary key is the sub-catchment number as an integer).
             Dataframe column headings:
             
+            Model output:
             Vr:   Reach volume (mm)
             Qr:   Mean daily discharge from the reach (mm/d)
             Msus: Daily flux of suspended sediment from the reach (kg/day)
             TDPr: Daily flux of TDP from the reach (kg/day)
             PPr:  Daily flux of PP from the reach (kg/day)
+            
+            Post-processing:
+            'Sim_Q_cumecs': Discharge (m3/s)
+            Concentrations in mg/l:
+                'PP_mgl'
+                'SRP_mgl'
+                'SS_mgl'
+                'TDP_mgl'
+                'TP_mgl': Sum of TDP and PP (mg/l)
             
             Note that instantaneous fluxes of in-stream Q and masses of SS, PP and TDP are also
             calculated by the model, and could be saved to this output dataframe if there was a need,
@@ -280,9 +298,10 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
     """    
     
     ##########################################################################################
-    # PROCESS INPUT PARAMETERS
-    # All params; index = param names, values in cols
-
+    # ---------------------------------------------------------------------------------------
+    # CALCULATE PARAMETERS DERIVED FROM USER INPUT
+    # All params: index = param names, values in cols
+    
     # LAND USE PARAMS
     # Add empty rows to land use param dataframe, to be populated later in model
     # (4 classes: 'A','S','NC','IG')
@@ -312,6 +331,7 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
             NC_type = 'None'
         p_SC.loc['NC_type',SC] = NC_type
     
+    # ---------------------------------------------------------------------------------------
     # SETUP ADMIN FOR LOOPING OVER TIME STEPS AND SUB-CATCHMENTS
     
     # Dictionary to store results for different sub-catchments
@@ -324,7 +344,7 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
     # Calculate the value of the shape parameter mu, in the exponential relating actual and
     # potential ET
     mu = -np.log(0.01)/p['fc']
-    
+     
     # Dictionary of parameters defining the dynamic crop cover-related erodibility (for the
     # M_land calculation)
     Erisk_dict = {}  # Key: 'spr' or 'aut'. Returns series with indices 'start','end','mid
@@ -337,43 +357,60 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
                   'mid':p['d_maxE_%s' %season]}
         Erisk_dict[season] = pd.Series(d_dict)
         
-    #-----------------------------------------------------------------------------------------
-    # INITIAL CONDITIONS THAT DON'T VARY BY SUB-CATCHMENT
-    # Unpack user-supplied initial conditions, calculate any others, convert units
-    
-    # 1) Terrestrial - constant over LU and SC
-    
-    # Soil water volume (agricultural and semi-natural; mm)
-    VsA0 = p['fc']   # Initial soil volume (mm). Assume it's at field capacity.
-    VsS0 = VsA0      # Initial soil vol, semi-natural land (mm). Assumed same as agricultural!!
-    
-    # Soilwater flow (agricultural and semi-natural; mm/day)
-    QsA0 = (VsA0 - p['fc'])/(p_LU['A']['T_s']*(1 + np.exp(p['fc'] - VsA0)))
-    QsS0 = (VsS0 - p['fc'])/(p_LU['S']['T_s']*(1 + np.exp(p['fc'] - VsS0)))
-    
-    # Groundwater flow and volume (mm/d, mm)
-    Qg0 = p['beta']*hf.UC_Qinv(p['Qr0_init'], p_SC.loc['A_catch',SC]) # Initial groundwater flow (mm/d)
-    Vg0 = Qg0 *p['T_g']     # Groundwater vol (mm)
-
     #################################################################################################
     # START LOOP OVER SUB-CATCHMENTS
     for SC in p['SC_list']:
         
+        print ('Starting model run for sub-catchment: %s' %SC)
+        
+        #-----------------------------------------------------------------------------------------
+        # Unpack user-supplied initial conditions, calculate any others, convert units
+        
+        # INITIAL CONDITIONS THAT DON'T VARY BY SUB-CATCHMENT
+        # Note: could have this section outside the sub-catchment loop, but then would need
+        # to change variable names
+
+        # 1) Hydrology - constant over LU and SC
+
+        # Soil water volume (agricultural and semi-natural; mm)
+        VsA0 = p['fc']   # Initial soil volume (mm). Assume it's at field capacity.
+        VsS0 = VsA0      # Initial soil vol, semi-natural land (mm). Assumed same as agricultural!!
+
+        # Soilwater flow (agricultural and semi-natural; mm/day)
+        QsA0 = (VsA0 - p['fc'])/(p_LU['A']['T_s']*(1 + np.exp(p['fc'] - VsA0)))
+        QsS0 = (VsS0 - p['fc'])/(p_LU['S']['T_s']*(1 + np.exp(p['fc'] - VsS0)))
+
+        # Initial in-stream flow. This is provided for a single reach and converted to units of mm/day.
+        # Once in units of mm/day, can assume the same initial discharge for every reach.
+        Qr0 = hf.UC_Qinv(p['Qr0_init'], p_SC.loc['A_catch',p['SC_Qr0']])
+
+        # Groundwater flow and volume (mm/d, mm). Assume equal to BFI*initial flow
+        Qg0 = p['beta'] * Qr0
+        Vg0 = Qg0 * p['T_g']
+
+        # 2) In-stream masses
+
+        # Initial TDP, PP & SS masses (kg). Assume all equal 0.0 and have warm-up period. Only a short
+        # warm-up period needed for most systems. Could be altered though.
+        TDPr0, PPr0, Msus0 = 0.0, 0.0, 0.0
+        
         # ---------------------------------------------------------------------------------------
-        # INITIAL CONDITIONS THAT VARY BY SUB-CATCHMENT
+        # INITIAL CONDITIONS AND VARIABLES THAT VARY BY SUB-CATCHMENT
     
         # Soil mass and inactive soil P (kg)
         # Assume inactive soil P is equivalent to semi-natural total soil P for all LU classes
         Msoil = p['Msoil_m2']*10**6*p_SC.loc['A_catch',SC] # Soil mass (kg): (kgSoil/m2)(m2/km2)km2
         P_inactive = 10**-6*p_LU['S']['SoilPconc']*Msoil
 
-        # 2) Terrestrial - varying by land use and by sub-catchment
+        # 3) Terrestrial - varying by land use and by sub-catchment
         for LU in ['A','S']:
-            # Convert units of EPC0 from mg/l to kg/mm to give initial EPC0
+            
+            # Initial EPC0: Convert units of EPC0 from mg/l to kg/mm
             p_LU.loc['EPC0_0',LU] = hf.UC_Cinv(p_LU[LU]['EPC0_init_mgl'], p_SC.loc['A_catch',SC])
             
             # Initial labile P. Units: (kgP/mgP)(mgP/kgSoil)kgSoil. Assume Plab0=0 for semi-natural
             p_LU.loc['Plab0',LU] = 10**-6*(p_LU[LU]['SoilPconc']-p_LU['S']['SoilPconc']) * Msoil
+            
             # Initial soil water TDP mass (kg); Units: (kg/mm)*mm
             if LU == 'A':
                 p_LU.loc['TDPs0',LU] = p_LU[LU]['EPC0_0']*VsA0
@@ -382,7 +419,9 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
                         
         # Set initial agricultural labile P and soil TDP masses as variables to be updated during
         # looping (assume semi-natural remain at 0 for both)
+        
         Plab0_A, TDPs0_A = p_LU.loc['Plab0','A'], p_LU.loc['TDPs0','A']
+        
         # Initial labile P and soil TDP mass on newly converted land use class
         if p_SC.loc['NC_type',SC]=='S':
             Plab0_NC = Plab0_A  # New class is SN, from arable, therefore start with arable labile P
@@ -396,25 +435,16 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
             # Assume SN has EPC0=0, PlabConc =0. Units: (kg/mg)(mg/kgSoil)(mm/kg)
             Kf = 10**-6*(p_LU['A']['SoilPconc']-p_LU['S']['SoilPconc'])/p_LU['A']['EPC0_0']  
         else:  # If not the calibration period, read Kf in from the series of param values
-            Kf = p['Kf']
-
-        # 3) In-stream initial conditions (all reaches the same for chem)
-        TDPr0, PPr0, Msus0 = 0.0, 0.0, 0.0  # Initial TDP, PP & SS masses (kg; assume all equal 0.0)
-        # Initial in-stream flow
-        if SC == 1:
-            # Convert units of initial reach Q from m3/s to mm/day
-            Qr0 = hf.UC_Qinv(p['Qr0_init'], p_SC.loc['A_catch',SC])
-        else:        
-            # Outflow from the reach upstream from the first time step
-            # N.B. need to convert to cumecs and then back to mm/d. This simplifies
-            # to just the ratio of the SC areas
-            # N.B.2 'Qr' here is Qr_av, the daily mean flow
-            Qr0 = df_R_dict[SC-1].ix[0,'Qr']  * (p_SC.loc['A_catch',SC-1]/p_SC.loc['A_catch',SC])
-            
-        # Initial reach volume (mm)
-        Tr0 = ((p_SC.loc['L_reach',SC])/
-               (p['a_Q']*(Qr0**p['b_Q'])*(8.64*10**4))) # Reach time constant (days); T=L/aQ^b
-        Vr0 = Qr0*Tr0 # (V=QT)
+            Kf = p['Kf']    
+        
+        # 4) Initial reach volume (mm)
+        Tr0 = (p_SC.loc['L_reach',SC]/
+               (p['a_Q'] * Qr0**p['b_Q'] * 8.64*10**4)) # Reach time constant (days); T=distance/speed = L/aQ^b
+        Vr0 = Tr0*Qr0 # (V=TQ; mm=days*mm/day)
+        
+        # If sewage effluent inputs left blank, replace with 0
+        if np.isnan(p_SC.loc['TDPeff',SC]):
+            p_SC.loc['TDPeff',SC] = 0.
         
         # --------------------------------------------------------------------------------------
         # ADMIN
@@ -424,12 +454,29 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
               
         # Lists to store output
         output_ODEs = []    # From ode_f function
-        output_nonODE = []  # Will include: Qq, Qr_US (latter for checking only)        
+        output_nonODE = []  # Will include: Qq, Qr_US (latter for checking only)   
+        
+        # List of upstream reaches
+        
+        # This is extracted from parameter file. User could supply nothing (blank cell),
+        # a single integer, or a list of integers (read as a single string). Convert all to list type.
+        # If a string (i.e. a list of reaches), convert cell value to a list of integers
+        if isinstance(p_struc.loc[SC,'Upstream_SCs'], basestring):
+            upstream_SCs = [int(x.strip()) for x in p_struc.loc[SC,'Upstream_SCs'].split(',')]
+        # If an integer (or not a NaN, just in case...), read cell value directly into list
+        elif isinstance(p_struc.loc[SC,'Upstream_SCs'], int) or not np.isnan(p_struc.loc[SC,'Upstream_SCs']):
+            upstream_SCs = [p_struc.loc[SC,'Upstream_SCs']]
+        # If cell is blank, make an empty list
+        else:
+            upstream_SCs = []
         
         # #####################################################################################
         # START LOOP OVER MET DATA
         for idx in range(len(met_df)):
 
+            # -----------------------------------------------------------------------------
+            # Daily hydrology
+            
             # Get hydrological inputs and evapotranspiration for this day
             P = met_df.ix[idx, 'P']
             E = met_df.ix[idx, 'PET']
@@ -437,23 +484,52 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
             # Calculate infiltration excess (mm/(day * catchment area))
             Qq_i = p['f_quick']*P
             
-            # Inputs to reach from up-stream reaches
-            if SC == 1:
-                # For the top reach, set the input from upstream reaches to 0
-                Qr_US_i, Msus_US_i, TDPr_US_i, PPr_US_i = 0.0, 0.0, 0.0, 0.0
+            # -----------------------------------------------------------------------------
+            # Inputs to reach from upstream. This is long-winded, could simplify by e.g. using
+            # a dictionary and looping
+            
+            # If have upstream reaches
+            if len(upstream_SCs)>0:
+                
+                # Print some output
+                if idx==0:
+                    print 'Reaches directly upstream of this reach: %s' %upstream_SCs
+                
+                # Empty lists to be populated with end-of-day values from upstream reaches
+                Qr_US_li = [] # Discharge (mm/d)
+                Msus_US_li = [] # Suspended sediment (kg)
+                TDPr_US_li = [] # Total dissolved P (kg)
+                PPr_US_li = [] # Particulate P (kg)
+                
+                # Loop and populate lists
+                for upstream_SC in upstream_SCs:
+                    # For discharge, mm/d value needs scaling by difference in areas between the two
+                    # sub-catchments (i.e. convert to cumecs then back again)
+                    Qr_US = (df_R_dict[upstream_SC].ix[idx,'Qr']
+                             * (p_SC.loc['A_catch',upstream_SC]/p_SC.loc['A_catch',SC])) # Ratio of areas
+                    Msus_US = df_R_dict[upstream_SC].ix[idx,'Msus']
+                    TDPr_US = df_R_dict[upstream_SC].ix[idx,'TDPr']
+                    PPr_US = df_R_dict[upstream_SC].ix[idx,'PPr']
+                    # Append to lists
+                    Qr_US_li.append(Qr_US)
+                    Msus_US_li.append(Msus_US)
+                    TDPr_US_li.append(TDPr_US)
+                    PPr_US_li.append(PPr_US)
+                # Sum inputs from all reaches directly upstream
+                Qr_US_i = sum(Qr_US_li)
+                Msus_US_i = sum(Msus_US_li)
+                TDPr_US_i = sum(TDPr_US_li)
+                PPr_US_i = sum(PPr_US_li)
+                
             else:
-                # Below reach 1, the upstream input is the daily mean flux from up-stream for the
-                # current day
-                # For discharge, need to convert to cumecs (taking into account the area of the upstream
-                # SC), and then back to mm/d (using the area of the current catchment). This simplifies
-                # to just the ratio of the SC areas
-                Qr_US_i = df_R_dict[SC-1].ix[idx,'Qr'] * (p_SC.loc['A_catch',SC-1]/p_SC.loc['A_catch',SC])
-                Msus_US_i = df_R_dict [SC-1].ix[idx, 'Msus']
-                TDPr_US_i = df_R_dict [SC-1].ix[idx, 'TDPr']
-                PPr_US_i = df_R_dict [SC-1].ix[idx, 'PPr']
+                if idx==0:
+                    print 'No reaches directly upstream of this reach'
+                # If no upstream reaches, set the input from upstream reaches to 0
+                Qr_US_i, Msus_US_i, TDPr_US_i, PPr_US_i = 0.0, 0.0, 0.0, 0.0
 
-            # Calculate delivery of sediment to the stream (kg/day). NB this flux
-            # assumes the land use covers the whole catchment. Divide by area to get areal flux
+            # -----------------------------------------------------------------------------
+            # Calculate delivery of sediment to the stream (kg/day)
+            # NB this flux assumes the land use covers the whole catchment. Divide by area to get areal flux
             Esus_i = pd.Series(3*[np.NaN],['A','S','IG']) # Empty series to store results in later
             dayNo = met_df.index[idx].dayofyear  # Day of the year (1 to 365)
             for LU in ['A','S','IG']:
@@ -501,10 +577,14 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
                               *C_cover
                               *(1-p_LU[LU]['C_measures']))
 
+            # -----------------------------------------------------------------------------
+            # EPC0
+            
             # Calculate dynamic EPC0 as a function of labile P mass
             if dynamic_options['Dynamic_EPC0'] == 'y':
                 EPC0_A_i = Plab0_A/(Kf*Msoil) # Agricultural EPC0; equals EPC0_0 on the 1st timestep
                 EPC0_NC_i = Plab0_NC/(Kf*Msoil) # EPC0 on newly-converted land
+           
             # Or, have a constant EPC0 throughout the model run
             else:
                 EPC0_A_i = p_LU['A']['EPC0_0']
@@ -513,11 +593,14 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
                 else:
                     EPC0_NC_i = p_LU['S']['EPC0_0']  # New agricultural has SN EPC0
 
-            # Append to non-ODE results
-            output_nonODE_i = [Qq_i,EPC0_A_i, EPC0_NC_i,C_cover_A ]
+            # -----------------------------------------------------------------------------
+            # Append quick flow, EPC0 and crop cover factor to non-ODE results
+            output_nonODE_i = [Qq_i, EPC0_A_i, EPC0_NC_i, C_cover_A ]
             output_nonODE.append(output_nonODE_i)
 
-            # ########################################################################################
+            # #############################################################################
+            # Input to solver & solve
+            
             # Vector of initial conditions for start of time step (assume 0 for initial Qr_av,
             # Msus_out, TDPr_out and PPr_out, the mass or vol of water lost per time step
             y0 = [VsA0, QsA0, VsS0, QsS0, Vg0, Qg0, Vr0, Qr0, 0.0, Msus0, 0.0, Plab0_A, Plab0_NC,
@@ -544,16 +627,29 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
             # This issue can also be circumvented by increasing the max. number of steps.
             y, output_dict = odeint(ode_f, y0, ti, args=(ode_params,),full_output=1, rtol=0.01, mxstep=5000)
 
-            # Extract values for the end of the step
+            # Extract values for the end of the step and store
             res = y[1]
             res[res<0] = 0
             output_ODEs.append(res)
 
-            # Update initial conditions for next step (for Vs, Qg0, Qr0, Msus0, Plab0, TDPs0)
+            # ----------------------------------------------------------------------------------------
+            # Update initial conditions for next step
             VsA0 = res[0]
-            QsA0 = res[1]
             VsS0 = res[2]
-            QsS0 = res[3]
+            
+            # Reading QsA0 and QsS0 from the results should give the same result as
+            # recalcultaing from VsA0 or VsS0. It does with James' simple version of the hydrol
+            # model. It doesn't here - because of setting results back to zero (line 611 above).
+            # Not setting results back to 0 and reading results directly is a bit better, but still
+            # some dodginess. And means have negative soil water flows which give artefacts in-stream.
+            # All down to the sigmoid function and soil water volumes just under field capacity giving
+            # negative values. Would be nice to replace with something smoother, but can't think of an
+            # easy fix which doesn't really change the conceptualisation of the model. 
+            # Unsatisfying, leave for now
+#             QsA0 = res[1]
+#             QsS0 = res[3]
+            QsA0 = (VsA0 - p['fc'])/(p_LU['A']['T_s']*(1 + np.exp(p['fc'] - VsA0)))
+            QsS0 = (VsS0 - p['fc'])/(p_LU['S']['T_s']*(1 + np.exp(p['fc'] - VsS0)))
             
             # Vg0 = res[4], but it's calculated from Qg0 to take into account the minimum flow
             # Re-set groundwater to user-supplied minimum flow at start of each time step. Non-ideal
@@ -575,7 +671,8 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
             PPr0 = res[17]     # TDPr_out_0 would be res[18], but it's always 0
 
             # END LOOP OVER MET DATA
-        #-------------------------------------------------------------------------------------
+            
+        # #############################################################################################
     
         # Build a dataframe of ODE results
         df_ODE = pd.DataFrame(data=np.vstack(output_ODEs),
@@ -627,18 +724,19 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
         df_R = df_ODE.drop(['VsA', 'QsA','VsS', 'QsS', 'Vg', 'Qg', 'Qr_instant',
                             'Msus_instant','P_labile_A', 'P_labile_NC', 'TDPs_A', 'TDPs_NC',
                             'TDPr_instant', 'PPr_instant'], axis=1)
-
+        
+        # Post-processing of results
+        
+        # Convert flow units from mm/d to m3/s
+        df_R['Sim_Q_cumecs'] = df_R['Qr']*p_SC.loc['A_catch',SC]*1000/86400
+        
         # Calculate concentrations (mg/l); generally from (kg/d)(d/mm)
         df_R['SS_mgl'] = hf.UC_C(df_R['Msus']/df_R['Qr'],p_SC.loc['A_catch',SC])
         df_R['TDP_mgl'] = hf.UC_C(df_R['TDPr']/df_R['Qr'],p_SC.loc['A_catch',SC])
         df_R['PP_mgl'] = hf.UC_C(df_R['PPr']/df_R['Qr'],p_SC.loc['A_catch',SC])
-        df_R['TP_mgl'] = df_R['TDP_mgl'] + df_R['PP_mgl']
         
-        # Calculate SRP from TDP using a constant user-supplied factor
-        df_R['SRP_mgl'] = df_R['TDP_mgl']*p['f_TDP']
-        
-        # Convert flow units from mm/d to m3/s
-        df_R['Sim_Q_cumecs'] = df_R['Qr']*p_SC.loc['A_catch',SC]*1000/86400
+        # Calculate derived variables: TP, SRP, and add to results dataframe
+        df_R = derived_P_species(df_R, p['f_TDP'])
         
         # ------------------------------------------------------------------------------------
         # Sort indices & add to dictionaries; key = sub-catchment/reach number
@@ -647,21 +745,76 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, step_len=1.):
         df_TC_dict[SC] = df_TC
         df_R_dict[SC] = df_R
         
+        print ('Finished!\n')
         # END LOOP OVER SUB-CATCHMENTS
-        #-------------------------------------------------------------------------------------
-
-    # SAVE TERRESTRIAL AND INSTREAM RESULTS TO CSV
+        
+    # #########################################################################################
+    # OUTPUT
+    
+    # If in calibration mode, print the calculated Kf value
+    if p_SU.run_mode == 'cal':
+        print ("Kf (the soil P sorption coefficient; mm/kg): %s\n" % Kf)
+    
+    # Save csvs of results
     if p_SU.save_output_csvs == 'y':
         for SC in df_R_dict.keys():
             df_TC_dict[SC].to_csv(os.path.join(p_SU.output_fpath, "Results_TC_SC%s.csv" % SC))
             df_R_dict[SC].to_csv(os.path.join(p_SU.output_fpath, "Instream_results_Reach%s.csv" % SC))
-        
-    # If in calibration mode, print the calculated Kf value
-    if p_SU.run_mode == 'cal':
-        print ("Kf (the soil P sorption coefficient; mm/kg): %s" % Kf)
+        print ('Results saved to csv\n')
+    
         
     return (df_TC_dict, df_R_dict, Kf, output_dict)  # NB Kf is returned for the last SC only
 
+# ###############################################################################################
+# Post-processing of reach results
+def derived_P_species(df_R, f_TDP):
+    """
+    Calculate: Total P as the sum of TDP and PP
+               SRP as a function of TDP
+    Inputs: reach results dataframe; value to multiply TDP by to get SRP
+    Returns: dataframe of reach results, with extra columns added
+    """
+    df_R['TP_mgl'] = df_R['TDP_mgl'] + df_R['PP_mgl']
+    
+    # Calculate SRP from TDP using a constant user-supplied factor
+    df_R['SRP_mgl'] = df_R['TDP_mgl']*f_TDP
+    
+    return df_R
+
+# ###############################################################################################
+
+def sum_to_waterbody(p_struc, n_SC, df_R_dict, f_TDP):
+    
+    vars_to_sum = ['Sim_Q_cumecs','Msus','TDPr','PPr']
+    reaches_in_final_flux = p_struc['In_final_flux?'][p_struc['In_final_flux?']==1].index.values
+    
+    # Check that the reach structure sheet matches the number of sub-catchments the user told
+    # the model to expect
+    if len(reaches_in_final_flux)>n_SC:
+        raise ValueError("Mismatch between the number of subcatchments in the 'Setup' parameter sheet \n(parameter 'n_SC') and in the 'Reach_structure' parameter sheet")
+    
+    print ('Sub-catchments flowing directly into receiving waterbody: %s' %reaches_in_final_flux)
+    
+    summed_series_li = []
+    for var in vars_to_sum:
+        reach_data_li = []
+        for reach in reaches_in_final_flux:
+            reach_data_li.append(df_R_dict[reach][var])
+        summed_series = pd.DataFrame(zip(*reach_data_li), columns=reaches_in_final_flux, index=df_R_dict[reach][var].index).sum(axis=1)
+        summed_series_li.append(summed_series)
+
+    df_summed = pd.DataFrame(zip(*summed_series_li), columns=vars_to_sum, index=df_R_dict[reach][var].index)
+    
+    # Calculating concentrations in mg/l: (daily mass/Q_cumecs) * (kg/day)(s/m3) (1 day/86400 s) (10**6 mg/kg) (10**-3 m3/l))
+    df_summed['SS_mgl'] = (df_summed['Msus']/df_summed['Sim_Q_cumecs']) * (1000./86400.)
+    df_summed['TDP_mgl'] = (df_summed['TDPr']/df_summed['Sim_Q_cumecs']) * (1000./86400.)
+    df_summed['PP_mgl'] = (df_summed['PPr']/df_summed['Sim_Q_cumecs']) * (1000./86400.)
+    
+    # Derive total P and SRP
+    df_summed = derived_P_species(df_summed, f_TDP)
+    
+    return df_summed 
+    
 # ###############################################################################################
 
 # For testing when running the script as standalone (__name__ = 'simply_p' when imported as a module)

@@ -1,0 +1,9 @@
+Observations and input data are automatically truncated to the start and end dates given in the parameter setup sheet
+Observed variables are automatically discarded if they aren't one of [list of obs]
+
+# OBSERVATIONS
+# Read from excel files (one for each of Q and chem). Excel files should have one sheet per
+# sub-catchment/reach, numbered 1, 2, etc.
+# Obs for each reach are read into a dataframe.
+# Each reach is stored as a separate df in obs_dict (key is the reach number, as an integer).
+# Units of Q: m3/s, Units of chemistry: mg/l

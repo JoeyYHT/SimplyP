@@ -4,7 +4,9 @@ import simplyP as sp
 
 from .model import (
     ode_f,
-    run_simply_p
+    run_simply_p,
+    derived_P_species,
+    sum_to_waterbody
 )
 
 from .inputs import (
@@ -26,6 +28,7 @@ from .visualise_results import(
     plot_snow,
     plot_terrestrial,
     plot_in_stream,
+    plot_instream_summed,
     goodness_of_fit_stats
 )
 
@@ -34,6 +37,8 @@ __all__ = [
     # Main model
     'ode_f',
     'run_simply_p',
+    'derived_P_species',
+    'sum_to_waterbody'
     
     # Inputs
     'read_input_data',
@@ -52,6 +57,7 @@ __all__ = [
     'plot_snow',
     'plot_terrestrial',
     'plot_in_stream',
+    'plot_instream_summed',
     'goodness_of_fit_stats',
 ]
 

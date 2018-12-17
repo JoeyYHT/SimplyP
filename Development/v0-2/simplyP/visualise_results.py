@@ -78,6 +78,7 @@ def plot_snow(met_df, p_SU, fig_display_type):
     else:
         raise ValueError('Snowfall/melt has not been estimated because inc_snowmelt != "y" in the setup file.') 
 
+# ########################################################################################
 def plot_terrestrial(p_SU, p_SC, p, df_TC_dict, met_df, fig_display_type):
     """ Plot results from terrestrial calculations.
 
@@ -96,23 +97,9 @@ def plot_terrestrial(p_SU, p_SC, p, df_TC_dict, met_df, fig_display_type):
     # Set format
     w, h, ticklabelsize, axlabelsize = _setformat(fig_display_type)
 
-    # PLOT TERRESTRIAL COMPARTMENT RESULTS
-    # Set up
-    TC_f1_vars = ['P','Qq','QsA','QsS','Qg','VsA','VsS','Vg'] # Variables for 1st plot
-
-    if p_SC.loc['NC_type',1] != 'None': # Variables in 2nd plot; depends if have NC land
-        TC_f2_vars = ['Plabile_A_mgkg', 'EPC0_A_mgl', 'TDPs_A_mgl', 'Plabile_NC_mgkg',
-                        'EPC0_NC_mgl', 'TDPs_NC_mgl']
-    else:
-        TC_f2_vars = ['Plabile_A_mgkg', 'EPC0_A_mgl', 'TDPs_A_mgl']
-
-    if p_SU.Dynamic_erodibility == 'y':  # Variables for 3rd plot; depends on erodibility option
-        TC_f3_vars = ['C_cover_A', 'Mland_A', 'Mland_IG', 'Mland_S']
-    else:
-        TC_f3_vars = ['Mland_A', 'Mland_IG', 'Mland_S']
-
     # Dictionary for re-naming y-axis label, to include full words and units
-    TC_ylab_d = {'P':'Rain & melt\n(mm/d)', 'Qq':'Quick Q\n(mm/d)',
+    TC_ylab_d = {'P':'Rain & melt\n(mm/d)', 'PET':'Potential ET\n(mm/d)',
+                 'Qq':'Quick Q\n(mm/d)',
                  'QsA':'SW Q, Agri\n(mm/d)','QsS':'SW Q, SN\n(mm/d)',
                  'Qg': 'GW Q\n(mm/d)','VsA': 'SW vol,\nAgri (mm)',
                  'VsS': 'SW vol,\nSN (mm)','Vg':'GW vol\n(mm)',
@@ -126,12 +113,14 @@ def plot_terrestrial(p_SU, p_SC, p, df_TC_dict, met_df, fig_display_type):
     # Start plotting
 
     # Plot 1: hydrology
-    df_TC_hydrol = df_TC_dict[1][TC_f1_vars[1:]] # Just plot for 1st sub-catchment
-    df_TC_hydrol = pd.concat([met_df['P'], df_TC_hydrol], axis=1)
+    TC_f1_vars = ['P','PET','Qq','QsA','QsS','Qg','VsA','VsS','Vg'] # Variables for 1st plot
+    
+    df_TC_hydrol = df_TC_dict[1][TC_f1_vars[2:]] # Just plot for 1st sub-catchment
+    df_TC_hydrol = pd.concat([met_df[['P', 'PET']], df_TC_hydrol], axis=1)
     TC_fig1_axes = df_TC_hydrol.plot(subplots=True, figsize=(w, len(TC_f1_vars)*h+1), legend=False)
     for i, ax in enumerate(TC_fig1_axes):
         # If soil water volume, add on field capacity
-        if i in [5,6]:
+        if i in [6,7]:
             ax.axhline(p.fc, color='0.4', alpha=0.5, lw=1.3, label='Field capacity')
         TC_fig1_axes[i].set_ylabel(TC_ylab_d[TC_f1_vars[i]], fontsize=axlabelsize)
         ax.yaxis.set_major_locator(MaxNLocator(nbins=_max_yticks, prune='upper'))
@@ -142,8 +131,16 @@ def plot_terrestrial(p_SU, p_SC, p, df_TC_dict, met_df, fig_display_type):
         fname_TC1 = os.path.join(p_SU.output_fpath, "Fig_TC_hydrol.%s" % p_SU.output_figtype)
         plt.savefig(fname_TC1, bbox_inches='tight', dpi=p_SU.output_fig_dpi)
 
-    # Plot 2: soil P
+    # Plot 2: soil P   
     if p_SU.Dynamic_EPC0 == 'y':
+        
+        # Variables in 2nd plot; depends if have NC land
+        if p_SC.loc['NC_type',1] != 'None':
+            TC_f2_vars = ['Plabile_A_mgkg', 'EPC0_A_mgl', 'TDPs_A_mgl', 'Plabile_NC_mgkg',
+                            'EPC0_NC_mgl', 'TDPs_NC_mgl']
+        else:
+            TC_f2_vars = ['Plabile_A_mgkg', 'EPC0_A_mgl', 'TDPs_A_mgl']
+                
         df_TC_soilP = df_TC_dict[1][TC_f2_vars] # Just plot for 1st sub-catchment
         TC_fig2_axes = df_TC_soilP.plot(subplots=True, figsize=(w, len(TC_f2_vars)*h+1), legend=False)
         plt.xlabel("")
@@ -157,7 +154,13 @@ def plot_terrestrial(p_SU, p_SC, p, df_TC_dict, met_df, fig_display_type):
             plt.savefig(fname_TC2, bbox_inches='tight', dpi=p_SU.output_fig_dpi)
     
     # Plot 3: 
+    if p_SU.Dynamic_erodibility == 'y':  # Variables for 3rd plot; depends on erodibility option
+        TC_f3_vars = ['C_cover_A', 'Mland_A', 'Mland_IG', 'Mland_S']
+    else:
+        TC_f3_vars = ['Mland_A', 'Mland_IG', 'Mland_S']
 
+        
+# ########################################################################################
 def plot_in_stream(p_SU, obs_dict, df_R_dict, fig_display_type):
     """ Plot results from in-stream calculations.
 
@@ -171,18 +174,18 @@ def plot_in_stream(p_SU, obs_dict, df_R_dict, fig_display_type):
         None. Plots are saved using parameters specified in p_SU. Results will also be displayed in
         Jupyter if using %matplotlib inline.
     """
-    
-    # Set format
-    w, h, ticklabelsize, axlabelsize = _setformat(fig_display_type)
-    
-    # PLOT IN-STREAM RESULTS
+       
     # SET UP
+    
     # Decide whether or not observations are plotted, according to the run_mode setup parameter
     if p_SU.run_mode == 'scenario':
         plot_obs = 'n'
     else:
         plot_obs = 'y'  # i.e. only plot obs for calibration & validation plots
 
+    # Set format
+    w, h, ticklabelsize, axlabelsize = _setformat(fig_display_type)
+    
     # Dictionary for re-naming y-axis label
     y_lab_d = {'SS': 'SS (mg/l)', 'TDP': 'TDP (mg/l)', 'PP':'PP (mg/l)', 'TP':'TP (mg/l)',
                'Q':'Q (m$^3$/s)', 'SRP': 'SRP (mg/l)'}
@@ -202,10 +205,17 @@ def plot_in_stream(p_SU, obs_dict, df_R_dict, fig_display_type):
         sim_color = 'k'
 
     # List of reaches user wants to plot results for
-    if p_SU.plot_reaches == 'all':
-        reach_list = df_R_dict.keys()
+    # If a string, could be 'all' or a list of reaches (eg. '1,2')
+    if isinstance(p_SU.plot_reaches, basestring):
+        if p_SU.plot_reaches == 'all':
+            reach_list = df_R_dict.keys() # If all, populate with all reaches
+        else:
+            # If just some reaches, extract these from param file
+            reach_list = [int(x.strip()) for x in p_SU.plot_reaches.split(',')]
     else:
-        reach_list = p_SU.plot_reaches
+        # If just one reach, this won't be a string, so extract directly
+        reach_list = [p_SU.plot_reaches]
+        
 
     # User-supplied list of variables for plotting
     R_vars_to_plot = [x.strip() for x in p_SU.R_vars_to_plot.split(',')] # Stripping whitespace
@@ -267,8 +277,9 @@ def plot_in_stream(p_SU, obs_dict, df_R_dict, fig_display_type):
                 ax.yaxis.set_major_locator(MaxNLocator(nbins=_max_yticks, prune='upper'))
             if var == 'SS' and var in logy_li:  # !!!May not be appropriate outside the Tarland!!
                 ax.set_ylim(1)
-            plt.ylabel(y_lab_d[var],fontsize=axlabelsize)  # y-axis label
+            plt.ylabel(y_lab_d[var],fontsize=axlabelsize)
             plt.xlabel("")
+            plt.suptitle("Reach %s" %SC)
             if i != len(R_vars_to_plot)-1:   # Turn off x-axis tick labels unless it's the bottom sub-plot
                 plt.tick_params(axis='x', labelbottom='off')
             plt.tick_params(axis='both', which='major', labelsize=ticklabelsize)
@@ -278,6 +289,80 @@ def plot_in_stream(p_SU, obs_dict, df_R_dict, fig_display_type):
             # Save figure
             fname_reach_ts = os.path.join(p_SU.output_fpath, "Fig_reach%s_timeseries.%s" % (SC, p_SU.output_figtype))
             plt.savefig(fname_reach_ts, bbox_inches='tight', dpi=p_SU.output_fig_dpi)
+
+
+# ########################################################################################
+def plot_instream_summed(p_SU, df_summed, fig_display_type):
+    """ Plot results from summing reach inputs to produce single set of fluxes to a receiving waterbody.
+        Optionally also save plot, and save results to csv
+
+        Args:
+            p_SU:             Series. User-specified setup options
+            df_summed:        Dataframe of reach results
+            fig_display_type: Str. 'paper' or 'notebook'
+
+        Returns:
+            None. Plots are saved using parameters specified in p_SU. Results will also be displayed in
+            Jupyter if using %matplotlib inline.
+    """   
+
+    # Set formatting
+    w, h, ticklabelsize, axlabelsize = _setformat(fig_display_type)
+    if p_SU.colour_option == 'colour':
+        sim_color = 'r'
+    else:
+        sim_color = 'k'
+        
+    # Dictionary for re-naming y-axis label
+    y_lab_d = {'SS': 'SS (mg/l)', 'TDP': 'TDP (mg/l)', 'PP':'PP (mg/l)', 'TP':'TP (mg/l)',
+               'Q':'Q (m$^3$/s)', 'SRP': 'SRP (mg/l)'}
+
+    # User-supplied list of variables for plotting
+    R_vars_to_plot = [x.strip() for x in p_SU.R_vars_to_plot.split(',')] # Stripping whitespace
+
+    # Plotting options - log-transforming y axis
+    logy_li = [x.strip() for x in p_SU.logy_list.split(',')] # List of variables with log y axes
+    # Create logy dict
+    logy_dict = {}
+    for var in R_vars_to_plot:
+        if var in logy_li:
+            logy_dict[var] = True
+        else:
+            logy_dict[var] = False
+    
+    df_summed_toPlot = df_summed[['Sim_Q_cumecs','SS_mgl','TDP_mgl','PP_mgl','TP_mgl','SRP_mgl']]
+    df_summed_toPlot.columns = ['Q','SS','TDP','PP','TP','SRP'] # Rename columns to match obs & param file
+    df_summed_toPlot = df_summed_toPlot[R_vars_to_plot] # Remove any columns that aren't to be plotted
+    
+    # Start plotting
+    fig = plt.figure(figsize=(w, len(R_vars_to_plot)*h+1)) 
+    for i, var in enumerate(R_vars_to_plot):
+        ax = fig.add_subplot(len(R_vars_to_plot),1,i+1)
+        df_summed_toPlot[var].plot(ax=ax, color=sim_color, lw=0.6, logy=logy_dict[var])
+
+        # Tidy up plot
+        if var not in logy_li:      # If not log-transformed, cut down tick labels on y-axis
+            ax.yaxis.set_major_locator(MaxNLocator(nbins=_max_yticks, prune='upper'))
+        if var == 'SS' and var in logy_li:  # !!!May not be appropriate outside the Tarland!!
+            ax.set_ylim(1)
+        plt.ylabel(y_lab_d[var],fontsize=axlabelsize)
+        plt.xlabel("")
+        plt.suptitle("Inputs to receiving waterbody from all upstream areas")
+        if i != len(R_vars_to_plot)-1:   # Turn off x-axis tick labels unless it's the bottom sub-plot
+            plt.tick_params(axis='x', labelbottom='off')
+        plt.tick_params(axis='both', which='major', labelsize=ticklabelsize)
+        plt.tick_params(axis='both', which='minor', labelsize=ticklabelsize)
+
+    if p_SU.plot_R == 'y':
+        # Save figure
+        fname_summed_ts = os.path.join(p_SU.output_fpath, "Fig_sum_to_waterbody_timeseries.%s" %p_SU.output_figtype)
+        plt.savefig(fname_summed_ts, bbox_inches='tight', dpi=p_SU.output_fig_dpi)
+        print ('Graph saved to file')
+        
+    if p_SU.save_output_csvs == 'y':
+        df_summed.to_csv(os.path.join(p_SU.output_fpath, "Instream_results_receiving_waterbody.csv"))
+        print ('Results saved to csv')
+            
 
 def goodness_of_fit_stats(p_SU, df_R_dict, obs_dict):
     """ Tabulates (and optionally saves) various goodness-of-fit statistics.
@@ -291,7 +376,8 @@ def goodness_of_fit_stats(p_SU, df_R_dict, obs_dict):
         Dataframe of statistics.
     """
     # PERFORMANCE METRICS (if in calibration or validation mode)
-    if p_SU.run_mode != 'scenario':  # If in calibration or validation run mode, calculate stats
+    # If in calibration or validation run mode, and if have some observations, calculate stats
+    if p_SU.run_mode != 'scenario' and len(obs_dict)>0:
         stats_var_li = ['Q','SS','TDP','PP','TP','SRP'] # All vars we're potentially interested in
         stats_df_li = [] # List of dfs with GoF results, one df per reach
 
@@ -363,4 +449,6 @@ def goodness_of_fit_stats(p_SU, df_R_dict, obs_dict):
             stats_fpath = os.path.join(p_SU.output_fpath, "GoF_stats.csv")
             stats_df_allSC.to_csv(stats_fpath)
 
-    return stats_df_allSC 
+        return stats_df_allSC 
+    else:
+        print ('No observations read in, therefore cannot calculate model performance statistics')

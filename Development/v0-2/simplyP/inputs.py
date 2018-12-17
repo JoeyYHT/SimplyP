@@ -21,20 +21,23 @@ def read_input_data(params_fpath):
     
     Args:
         params_fpath: Raw str. Path to completed Excel input template.
-                inc_snowmelt    Str. 'y' or 'n'. Whether to convert input precipitation timeseries to rainfall
-                        and snowmelt using the snow accumulation & melt function, hydrol_inputs()
         
     Returns:
-        Tuple (p_SU, dynamic_options, p, p_LU, p_SC, met_df, obs_dict).
+        Tuple (p_SU, dynamic_options, p, p_LU, p_SC, p_struc, met_df, obs_dict).
         
+        Parameter values. Indices are the parameter names (which match the input parameter sheet).
+        Values are the parameters. 
         p_SU:            Series. Setup parameters
         dynamic_options: Series. Subset of dynamic setup parameters
-        p:               Series. Constant parameters
-        p_LU:            Series. Land use parameters
-        p_SC:            Series. sub-catchment and reach parameters
+        p:               Series. Parameters which are constant over land use and sub-catchment/reach
+        p_LU:            Dataframe. Land use parameters. One column per land use type ('A','S','IG','NC')
+        p_SC:            Dataframe. Sub-catchment and reach parameters. One column per sub-catchment/reach
+        p_struc:         Dataframe. 
         met_df:          Dataframe. Meteorological data and data derived from it
-                         (if desired, including snow accumulation & melt, PET)
-        obs_dict:        Dict. Observed discharge and chemistry data
+                         (if desired, including results from snow accumulation & melt module, PET)
+        obs_dict:        Dict. Observed discharge and chemistry data.
+                         Keys: reach number. Values: Dataframe with datetime index and columns for water quality
+                         variables. Columns are all 
     """
     # ----------------------------------------------------------------------------------------
     # USER SET-UP PARAMETERS
@@ -66,6 +69,15 @@ def read_input_data(params_fpath):
     else:
         usecols_str = "B,E:%s" %lastCol
     p_SC = pd.read_excel(params_fpath, sheet_name='SC_reach', index_col=0, usecols=usecols_str)
+    
+    # REACH STRUCTURE PARAMETERS
+    # Describe which reaches flow into each other, and whether to sum fluxes to produce an input
+    # to a water body (e.g. a lake or coastal zone)
+    p_struc = pd.read_excel(params_fpath, sheet_name='Reach_structure', index_col=0, usecols="A,B,C")
+    p_struc.columns = ['Upstream_SCs','In_final_flux?']  # Shorten column names    
+    
+    # Print some output
+    print ('Parameter values successfully read in')
 
     # -----------------------------------------------------------------------------------------
     # MET DATA
@@ -73,47 +85,68 @@ def read_input_data(params_fpath):
     met_df = pd.read_csv(p_SU.metdata_fpath, parse_dates=True, dayfirst=True, index_col=0)
     met_df = met_df.truncate(before=p_SU.st_dt, after=p_SU.end_dt)  # Truncate to the desired period
     
-    # -----------------------------------------------------------------------------------------
+    print ('Input meteorological data read in')
+    
     # If desired, run SNOW MODULE
     if p_SU.inc_snowmelt == 'y':
         met_df = snow_hydrol_inputs(p['D_snow_0'], p['f_DDSM'], met_df)
+        print ('Snow accumulation and melt module run to estimate snowmelt inputs to the soil')
     else:
         met_df.rename(columns={'Pptn':'P'}, inplace=True)
     
-    # -----------------------------------------------------------------------------------------
     # If PET isn't in the input met data, calculate it using Thornthwaite's 1948 equation
     if 'PET' not in met_df.columns:
         met_df = daily_PET(latitude=p['latitude'], met_df=met_df)
-    
+        print ('PET estimated using the Thornthwaite method')
+ 
     # -----------------------------------------------------------------------------------------
     # OBSERVATIONS
+    # If file paths provided, read in observed data
+    
     # Read from excel files (one for each of Q and chem). Excel files should have one sheet per
     # sub-catchment/reach, numbered 1, 2, etc. Obs for each reach are read into a dataframe.
     # Each reach is stored as a separate df in obs_dict (key is the reach number, as an integer).
     # Units of Q: m3/s, Units of chemistry: mg/l
-    Qobs_xl = pd.ExcelFile(p_SU.Qobsdata_fpath)
-    chemObs_xl = pd.ExcelFile(p_SU.chemObsData_fpath)
-    SC_with_Qobs = [int(x) for x in Qobs_xl.sheet_names]  # List of sub-catchments with Q data
-    SC_with_chemObs = [int(x) for x in chemObs_xl.sheet_names]  # List of sub-catchments with chemistry data
+    
+    # If a string has been provided for the Q observations, try reading in
+    if isinstance(p_SU.Qobsdata_fpath, basestring):
+        Qobs_xl = pd.ExcelFile(p_SU.Qobsdata_fpath)
+        SC_with_Qobs = [int(x) for x in Qobs_xl.sheet_names]  # List of sub-catchments with Q data
+        print ('Observed discharge data read in')
+    else:
+        SC_with_Qobs = []
+        
+    # If a string has been provided for water chem obs, try reading in    
+    if isinstance(p_SU.chemObsData_fpath, basestring):
+        chemObs_xl = pd.ExcelFile(p_SU.chemObsData_fpath)
+        SC_with_chemObs = [int(x) for x in chemObs_xl.sheet_names]  # List of sub-catchments with chemistry data
+        print ('Observed water chemistry data read in')
+    else:
+        SC_with_chemObs = []
+
     obs_dict = {}   # Key: sub-catchment number (1,2,...); only SCs with obs are included
                     # Returns dataframe of observed data (if any)
+                    
     for SC in p['SC_list']:  # Loop through all sub-catchments being simulated
         df_li = []  # List of Q and chem dataframes for the reach; may be empty or have up to 2 dfs
-        if SC in SC_with_Qobs:  # Check whether the sub-catchment has discharge data
+                    
+        if SC in SC_with_Qobs:
             Qobs_df = pd.read_excel(p_SU.Qobsdata_fpath, sheet_name=str(SC), index_col=0)
             Qobs_df = Qobs_df.truncate(before=p_SU.st_dt, after=p_SU.end_dt)
             df_li.append(Qobs_df)
-        if SC in SC_with_chemObs:  # Check whether the sub-catchment has chemistry data
+                    
+        if SC in SC_with_chemObs:
             chemObs_df = pd.read_excel(p_SU.chemObsData_fpath, sheet_name=str(SC), index_col=0)
             chemObs_df = chemObs_df.truncate(before=p_SU.st_dt, after=p_SU.end_dt)
             df_li.append(chemObs_df)
+        
         # If this SC has observations, add it to the dictionary of observations (obs_dict)
-        if df_li:  # If there's something in the list, this returns true; otherwise false
+        if len(df_li)>0:
             obs_df = pd.concat(df_li, axis=1)  # If have both Q & chem data, combine into one df
             obs_dict[SC] = obs_df  # Add to dictionary
     
     # -----------------------------------------------------------------------------------------   
-    return (p_SU, dynamic_options, p, p_LU, p_SC, met_df, obs_dict)
+    return (p_SU, dynamic_options, p, p_LU, p_SC, p_struc, met_df, obs_dict)
 
 #########################################################################################
  
