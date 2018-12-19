@@ -251,19 +251,30 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
             with one dataframe per sub-catchment (key is the sub-catchment number as an integer).
             The dataframe has column headings:
             
-            VsA:          Soil water volume, agricultural land (mm)
-            VsS:          Soil water volume, semi-natural land (mm)
+			C_cover_A:	  Soil cover and erodibility factor for agricultural land			
+			D_snow:		  Snow depth (mm)
+            EPC0_A_kgmm:  EPC0 in agricultural soil (kg/mm)
+			EPC0_A_mgl:	  EPC0 in agricultural soil (mg/l)
+            EPC0_NC_kgmm: EPC0 in newly-converted agricultural or semi-natural soil (kg/mm)       
+			EPC0_NC_mgl:  EPC0 in newly-converted agricultural or semi-natural soil (mg/l).
+			              Only calculated if have NC land
+            P_labile_A:   Labile soil P mass in agricultural land (kg)
+            P_labile_NC:  Labile soil P mass in newly-converted agricultural or semi-natural land (kg)
+			Plabile_A_mgkg: Labile soil P content on agricultural land (mg P/kg soil)
+			Plabile_NC_mgkg: Labile soil P content on newly-converted land (mg P/kg soil);
+			                 only calculated if have newly-converted land
+            TDPs_A:       Soil water TDP mass, agricultural land (kg)
+			TDPs_A_mgl:   Soil water TDP concentration, agricultural land (mg/l)
+			TDPs_NC_mgl:  Soil water TDP concentration, agricultural land (mg/l).
+			              Only calculated if have NC land
+            TDPs_NC:      Soil water TDP mass, newly-converted agricultural or semi-natural land (kg)
+			Qg:           Groundwater flow (mm/d)
+            Qq:           Quick flow (mm/d)
             QsA:          Soil water flow, agricultural land (mm/d)
             QsS:          Soil water flow, semi-natural land (mm/d)
             Vg:           Groundwater volume (mm)
-            Qg:           Groundwater flow (mm/d)
-            Qq:           Quick flow (mm/d)
-            P_labile_A:   Labile soil P mass in agricultural soil (kg)
-            P_labile_NC:  Labile soil P mass in newly-converted agricultural or semi-natural land (kg)
-            EPC0_A_kgmm:  EPC0 in agricultural soil (kg/mm)
-            EPC0_NC_kgmm: EPC0 in newly-converted agricultural or semi-natural soil (kg/mm)       
-            TDPs_A:       Soil water TDP mass, agricultural land (kg)
-            TDPs_NC:      Soil water TDP mass, newly-converted agricultural or semi-natural land (kg)
+            VsA:          Soil water volume, agricultural land (mm)
+            VsS:          Soil water volume, semi-natural land (mm)
 
         2)  df_R_dict: A dictionary containing dataframes of results for the stream reach, with one
             dataframe per sub-catchment (dictionary key is the sub-catchment number as an integer).
@@ -277,13 +288,16 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
             PPr:  Daily flux of PP from the reach (kg/day)
             
             Post-processing:
-            'Sim_Q_cumecs': Discharge (m3/s)
-            Concentrations in mg/l:
-                'PP_mgl'
-                'SRP_mgl'
-                'SS_mgl'
-                'TDP_mgl'
-                'TP_mgl': Sum of TDP and PP (mg/l)
+				Sim_Q_cumecs: Discharge (m3/s)
+				Concentrations in mg/l:
+					PP_mgl
+					SRP_mgl
+					SS_mgl
+					TDP_mgl
+					TP_mgl: Sum of TDP and PP (mg/l)
+				Daily fluxes:
+					TPr: Daily flux of total P from the reach (kg/day)
+					SRPr: Daily flux of total P from the reach (kg/day)
             
             Note that instantaneous fluxes of in-stream Q and masses of SS, PP and TDP are also
             calculated by the model, and could be saved to this output dataframe if there was a need,
@@ -374,7 +388,7 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
 
         # Soil water volume (agricultural and semi-natural; mm)
         VsA0 = p['fc']   # Initial soil volume (mm). Assume it's at field capacity.
-        VsS0 = VsA0      # Initial soil vol, semi-natural land (mm). Assumed same as agricultural!!
+        VsS0 = VsA0      # Initial soil vol, semi-natural land (mm). Assumed same as agricultural!
 
         # Soilwater flow (agricultural and semi-natural; mm/day)
         QsA0 = (VsA0 - p['fc'])/(p_LU['A']['T_s']*(1 + np.exp(p['fc'] - VsA0)))
@@ -771,13 +785,17 @@ def derived_P_species(df_R, f_TDP):
     """
     Calculate: Total P as the sum of TDP and PP
                SRP as a function of TDP
+               for both the daily mass flux and the concentrations
     Inputs: reach results dataframe; value to multiply TDP by to get SRP
     Returns: dataframe of reach results, with extra columns added
     """
-    df_R['TP_mgl'] = df_R['TDP_mgl'] + df_R['PP_mgl']
+    # Calculate total P as the sum of TDP and PP
+    df_R['TP_mgl'] = df_R['TDP_mgl'] + df_R['PP_mgl'] # Concentration (mg/l)
+    df_R['TPr'] = df_R['TDPr'] + df_R['PPr'] # Mass (kg/day)
     
     # Calculate SRP from TDP using a constant user-supplied factor
-    df_R['SRP_mgl'] = df_R['TDP_mgl']*f_TDP
+    df_R['SRP_mgl'] = df_R['TDP_mgl']*f_TDP # Concentration (mg/l)
+    df_R['SRPr'] = df_R['TDPr']*f_TDP # Mass (kg/day)
     
     return df_R
 

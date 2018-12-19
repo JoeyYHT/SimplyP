@@ -1,4 +1,4 @@
-SimplyP v0.1 and v0.2, description of inputs data files
+SimplyP v0.1 and v0.2, description of input and output data files
 
 Last modified 17/12/2018
 Leah Jackson-Blake
@@ -9,7 +9,7 @@ Formatting:
 - Decimal separators: points are expected, not commas. I'll add another setup parameter soon to allow for semi-colon separated files with decimal commas. Get in touch if you need that doing now.
 
 ########################################################################
-1) Model parameters:
+1) Input: Model parameters
 
 These are defined in an Excel sheet. See the Example_Data file for a template.
 
@@ -20,7 +20,7 @@ The sheet names must not change, nor must the parameter names within the 'Param'
 See the 'readme' on the first sheet of the parameter file for more information.
 
 ########################################################################
-2) Meteorological data to drive the model
+2) Input: Meteorological data to drive the model
 
 This should be stored in csv format with column headings:
 
@@ -41,7 +41,7 @@ If PET data is not provided, it will be calculated by the model using the Thornt
 See the Example_Data file for a template
 
 ########################################################################
-3) Optionally: observed discharge and water chemistry data
+3) Optional input: observed discharge and water chemistry data
 
 In Excel files. Create separate files for discharge and water chemistry data.
 Files can have any name (the path to the files is entered by the user in the parameter 'Setup' sheet)
@@ -70,3 +70,65 @@ Any columns in the sheet with  names aside from these will not be read in (but n
 As with the meteorological input data, observations are automatically truncated to the start and end dates given in the parameter setup sheet
 
 See the Example_Data file for templates
+
+########################################################################
+4) Optional output: Instream results
+
+csvs of simulated in-stream results are provided for all reaches and for the summed inputs to a receiving waterbody (if simulated).
+Files are labelled:
+	Instream_results_Reach#.csv where # is the reach number
+	Instream_results_receiving_waterbody.csv
+
+Files have the following columns in addition to the date:
+
+Model output:
+	Vr:   Reach volume (mm)
+	Qr:   Mean daily discharge from the reach (mm/d)
+	Msus: Daily flux of suspended sediment from the reach (kg/day)
+	TDPr: Daily flux of total dissolved P from the reach (kg/day)
+	PPr:  Daily flux of particulate P from the reach (kg/day)
+
+Post-processing:
+	Sim_Q_cumecs: Daily mean discharge (m3/s)
+	Daily fluxes:
+		TPr: Daily flux of total P from the reach (kg/day)
+		SRPr: Daily flux of total P from the reach (kg/day)
+	Concentrations in mg/l:
+		PP_mgl: particulate P
+		SRP_mgl: soluble reactive P
+		SS_mgl: suspended sediment
+		TDP_mgl: total dissolved P
+		TP_mgl: total P
+
+########################################################################
+4) Optional output: Terrestrial compartment results
+
+csvs of simulated results for the terrestrial compartment are produced for all sub-catchments.
+Filenames: Results_TC_SC#.csv, where # is the sub-catchment number.
+
+Files include the following columns in addition to the date:
+
+C_cover_A:	  Soil cover and erodibility factor for agricultural land			
+D_snow:		  Snow depth (mm)
+EPC0_A_kgmm:  EPC0 in agricultural soil (kg/mm)
+EPC0_A_mgl:	  EPC0 in agricultural soil (mg/l)
+EPC0_NC_kgmm: EPC0 in newly-converted agricultural or semi-natural soil (kg/mm)       
+EPC0_NC_mgl:  EPC0 in newly-converted agricultural or semi-natural soil (mg/l).
+			  Only calculated if have NC land
+P_labile_A:   Labile soil P mass in agricultural land (kg)
+P_labile_NC:  Labile soil P mass in newly-converted agricultural or semi-natural land (kg)
+Plabile_A_mgkg: Labile soil P content on agricultural land (mg P/kg soil)
+Plabile_NC_mgkg: Labile soil P content on newly-converted land (mg P/kg soil);
+				 only calculated if have newly-converted land
+TDPs_A:       Soil water TDP mass, agricultural land (kg)
+TDPs_A_mgl:   Soil water TDP concentration, agricultural land (mg/l)
+TDPs_NC_mgl:  Soil water TDP concentration, agricultural land (mg/l).
+			  Only calculated if have NC land
+TDPs_NC:      Soil water TDP mass, newly-converted agricultural or semi-natural land (kg)
+Qg:           Groundwater flow (mm/d)
+Qq:           Quick flow (mm/d)
+QsA:          Soil water flow, agricultural land (mm/d)
+QsS:          Soil water flow, semi-natural land (mm/d)
+Vg:           Groundwater volume (mm)
+VsA:          Soil water volume, agricultural land (mm)
+VsS:          Soil water volume, semi-natural land (mm)

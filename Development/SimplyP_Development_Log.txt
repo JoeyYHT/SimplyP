@@ -1,11 +1,101 @@
 SimplyP summary of development history
 
-Initial model developed autumn-winter 2015. Released as v0-1A
+-------------------------------------------------------------
+Initial model developed autumn-winter 2015. Released as v0.1A
 
-Changes made to v0-1A 2018 on (currently within the 'Development' folder):
+#############################################################################
+Subsequent changes to v0.1A (also implemented in v0.2):
+
+Bug fix: Flow into the current reach from upstream reaches had incorrect area scaling. Now corrected (affects variables Qr0 the first time it is defined, and Qr_US_i)
+
+Bug fix: Fraction of newly converted land was missing from a number of ODEs, now added in. i.e. replaced f_A, f_S, f_Ar, f_IG with (f_A + f_NC_A), etc. Affects equations: dQg_dt, dVg_dt, dQr_dt, dVr_dt, dMsus_dt. This bug would only have affected model setups with newly-converted land.
+
+Changed dataframe indexing - replaced ambiguous .ix with .loc in most cases. Also added two parameters to the parameter file which are not yet implemented, but which are built into the model for future use. This prevents a FutureWarning from appearing when the code is run.
+
+
+#############################################################################
+Autumn 2018 onwards, started working on new release v0.2
+(currently within the 'Development' folder)
+
+------------------------------------------------------------------------
+General changes:
 
 - Repackaged as a module with sub-modules, to split functions into different groups for ease of further development & debugging
+
+- Added new functions to __init__ file
+
+- Improved documentation of functions
+
+- Added more print statements to keep track of outputs
+
+- Added a text file describing input and output data
+
+- Created a log to keep track of model changes (text will be almost the same as the GitHub commits text)
+
+------------------------------------------------------------------------
+Changes to functions in inputs.py file:
+
 - Added Thornthwaite PET calculation, using functions copied from pyET0. If PET is not a column in the input meteorology data file, then it is calculated. N.B. Thornthwaite requires whole years, so if calculating PET the model can only be run for whole calendar years.
-- Added in in-stream SRP calculation as a simple function of simulated in-stream TDP: SRP = m * TDP, where m is a user-supplied parameter.
-- Added in SRP to the in-stream plots and goodness-of-fit statistics
+
+- Moved PET and snowmelt calculations from the main run model function into inputs.py. Therefore also removed inc_snowmelt parameter from run_simplyP function.
+
+- read reach structure parameters into new parameter dataframe p_struc
+
+- Q and chem observations are now only read in if a filepath is provided in the parameter file. Can now leave these cells blank if don't want to read in obs
+
+------------------------------------------------------------------------
+Changes in model.py:
+
+- Added in-stream SRP calculation as a simple function of simulated in-stream TDP: SRP = m * TDP, where m is a user-supplied parameter. New parameter added to parameter file. Associated plots and goodness of fit stats updated.
+
+- Added logic to ode_f so dPlabA_dt and dPlabNC_dt = 0 if the soil water volume is 0. Results in big speed up (these equations are stiff).
+
+- Added logic so no change in soil water TDP mass if user decides to keep soil water TDP constant (dynamic EPC0 = 'n'). The mass is constant but the concentration wouldn't be due to change in soil water volume, so replace mass/volume with a concentration parameter in the in-stream equation. Concentration parameter is equal to EPC0 if user wants soil water TDP concentration to stay constant. To do this, added parameter dynamic_EPC0 to ode_params
+
+- Moved PET and snowmelt calculations from the main run model function into inputs.py. Therefore also removed inc_snowmelt parameter from run_simplyP function.
+
+- Initial conditions QsA0, QsS0, Vg0, Vr0 and Tr0 were calculated within the loop over the met data in v0.1, using ODE output for related variables. No reason to do this for any apart from Vg0 (which is calculated from Qg0 as ODE output of Qg0 may be reset to user-supplied minimum). Therefore moved all out of the loop over met data & tidied up a bit
+
+- Bug fix: Moved definition of initial conditions VsA0, VsS0, QsA0, QsS0, Qg0, Vg0 from outside the sub-catchment loop into the sub-catchment loop. Otherwise, only being set correctly for the first sub-catchment. Subsequent SCs’ initial conditions were the last time step from the previous SC, oops.
+
+- new argument p_struc (defined in inputs.py), to define the reach structure parameters
+
+- Before loop over met data: define list of upstream reaches, upstream_SCs, from the p_struc parameter dataframe
+
+- Replace calculation of upstream inputs as inputs from a single upstream reach, to calculate inputs from however many reaches are directly upstream. Affects: Qr_US_i, Msus_US_i, TDPr_US_i, PPr_US_i
+
+- Define new function sum_to_waterbody(). Takes input reach structure from the excel file, and sums discharge and masses from desired reaches to produce inputs to a receiving waterbody (e.g. lake, estuary).
+
+- Qr0 used to be calculated only for SC1, the topmost reach, and initial Qs for other reaches were set to the output for the previous day for up-stream reaches. Changed to: user specifies the reach an initial value is provided for (e.g. most data-rich). Then convert the units to mm/day and it then is applied to all reaches (area-scaling involved in converting units means this is ok if hydrology is similar). Qr0 definition has therefore been moved up to after QsS0.
+
+- Added check for blank in sewage inputs parameter file (p_SC.loc['TDPeff',SC]). If blank, changed to 0.
+
+- Removed direct reading of ODE results when setting QsA0 and QsS0 for the next time step. Replaced with re-calculation from VsA0 and VsS0. See further discussion in Issue ‘Soil water sigmoid function leads to negative soil water flows’. Needs looking into more.
+
+- Moved calculation of df_R[‘TP_mgl’] and df_R[‘SRP_mgl’] from main function to new function derived_P_species (which is then re-used in sum_to_waterbody()).
+
+- Add calculation of reach SRP and TP fluxes fo function derived_P_species (previously only concentrations were calculated) and output in reach results dataframes
+
+------------------------------------------------------------------------
+Changes in visualise_results.py:
+
 - Bug fix in the goodness-of-fit function, it wasn't correctly accounting for variables/reaches without data
+
+- No plotting of soil P results if dynamic EPC0 is turned off
+
+- Added PET to terrestrial compartment plot
+
+- plot_in_stream function: fixed bug in plotting multiple reaches (p_SU.plot_reaches wasn’t being read in correctly if it was a list). Added reach title to plots.
+
+- Added new function plot_instream_summed to plot the results from summing reach inputs to look at simulated total discharge and averaged concentrations to receiving waterbody.
+
+- goodness_of_fit_stats: logic added so don’t try to calculate if don’t have any observations (len(obs_dict)<=0).
+
+------------------------------------------------------------------------
+Changes to parameter excel file:
+
+- Added new sheet Reach_structure
+
+- Added parameter SC_Qr0 to ‘Constant’ sheet, a setup parameter which describes which reach the initial discharge value is provided for
+
+- New parameter f_TDP in 'Constant' sheet to specify relation between SRP and TDP
