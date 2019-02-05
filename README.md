@@ -14,11 +14,11 @@ Please report any bugs or errors either by [submitting a pull request via GitHub
 
 ## Installation
 
-If you don't have an up-to-date Python installation, a good option is the [Anaconda Python distribution](https://www.anaconda.com/download/). Model development was carried out using **Python 2.7**, but the current code has also been tested with **Python 3.6**.
+If you don't have an up-to-date Python installation, a good option is the [Anaconda Python distribution](https://www.anaconda.com/download/). Model development was carried out using **Python 2.7**, but should now be run with **Python 3.6** as Python 2.7 is being phased out.
 
-1. From the Anaconda prompt, create a new clean conda environment for SimplyP
+1. From the Anaconda prompt, create a new clean conda environment for SimplyP (you can replace 'simplyp' with a name of your choice)
 
-       conda create -n simplyp python=2.7
+       conda create -n simplyp python=3.6
     
 2. Activate the new environment
 
