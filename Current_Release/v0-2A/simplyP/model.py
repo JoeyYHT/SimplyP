@@ -477,7 +477,7 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
         # This is extracted from parameter file. User could supply nothing (blank cell),
         # a single integer, or a list of integers (read as a single string). Convert all to list type.
         # If a string (i.e. a list of reaches), convert cell value to a list of integers
-        if isinstance(p_struc.loc[SC,'Upstream_SCs'], basestring):
+        if isinstance(p_struc.loc[SC,'Upstream_SCs'], str):
             upstream_SCs = [int(x.strip()) for x in p_struc.loc[SC,'Upstream_SCs'].split(',')]
         # If an integer (or not a NaN, just in case...), read cell value directly into list
         elif isinstance(p_struc.loc[SC,'Upstream_SCs'], int) or not np.isnan(p_struc.loc[SC,'Upstream_SCs']):
@@ -509,7 +509,7 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
                 
                 # Print some output
                 if idx==0:
-                    print 'Reaches directly upstream of this reach: %s' %upstream_SCs
+                    print ('Reaches directly upstream of this reach: %s' %upstream_SCs)
                 
                 # Empty lists to be populated with end-of-day values from upstream reaches
                 Qr_US_li = [] # Discharge (mm/d)
@@ -539,7 +539,7 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
                 
             else:
                 if idx==0:
-                    print 'No reaches directly upstream of this reach'
+                    print ('No reaches directly upstream of this reach')
                 # If no upstream reaches, set the input from upstream reaches to 0
                 Qr_US_i, Msus_US_i, TDPr_US_i, PPr_US_i = 0.0, 0.0, 0.0, 0.0
 
