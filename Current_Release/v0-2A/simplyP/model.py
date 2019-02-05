@@ -509,7 +509,7 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
                 
                 # Print some output
                 if idx==0:
-                    print 'Reaches directly upstream of this reach: %s' %upstream_SCs
+                    print ('Reaches directly upstream of this reach: %s' %upstream_SCs)
                 
                 # Empty lists to be populated with end-of-day values from upstream reaches
                 Qr_US_li = [] # Discharge (mm/d)
@@ -539,7 +539,7 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
                 
             else:
                 if idx==0:
-                    print 'No reaches directly upstream of this reach'
+                    print ('No reaches directly upstream of this reach')
                 # If no upstream reaches, set the input from upstream reaches to 0
                 Qr_US_i, Msus_US_i, TDPr_US_i, PPr_US_i = 0.0, 0.0, 0.0, 0.0
 
