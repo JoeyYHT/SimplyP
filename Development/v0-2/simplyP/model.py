@@ -125,9 +125,8 @@ def ode_f(y, t, ode_params):
     
     # Instream (units mm or mm/day)
     dQr_dt = ((Qq_i                                 # Quick flow
-               + (1-beta)*((f_A+f_NC_A)*QsA_i       # Soil water in: Arable land
-               + (f_S+f_NC_S)*QsS_i)                # Soil water in: Semi-natural land
-               + Qg_i + Qr_US_i - Qr_i)             # Groundwater in (mm/d)
+               + (1-beta)*(f_A*QsA_i + f_S*QsS_i)   # Soil water in: Agricultural & semi-natural
+               + Qg_i + Qr_US_i - Qr_i)             # Groundwater in, upstream reach, reach outflow
               *a_Q*(Qr_i**b_Q)*(8.64*10**4)/((1-b_Q)*(L_reach))) # Outflow. U/L=1/T. Units:(m/s)(s/d)(1/m)
     dVr_dt = (Qq_i + (1-beta)*(f_A*QsA_i + f_S*QsS_i) + Qg_i + Qr_US_i - Qr_i)
     dQr_av_dt = Qr_i  # Daily volume of water leaving the reach. Initial value always 0 (mm/day)
