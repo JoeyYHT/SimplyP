@@ -206,7 +206,7 @@ def plot_in_stream(p_SU, obs_dict, df_R_dict, fig_display_type):
 
     # List of reaches user wants to plot results for
     # If a string, could be 'all' or a list of reaches (eg. '1,2')
-    if isinstance(p_SU.plot_reaches, basestring):
+    if isinstance(p_SU.plot_reaches, str):
         if p_SU.plot_reaches == 'all':
             reach_list = df_R_dict.keys() # If all, populate with all reaches
         else:
