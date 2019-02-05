@@ -1,13 +1,13 @@
 # ----------------------------------------------------------------------- 
-# Name:		inputs.py
-# Purpose: 	Read in input parameters to set up and run the model.
-# 			Read in meteorological data, and if desired calculate derived
-# 			data to run the model.
+# Name:     inputs.py
+# Purpose:  Read in input parameters to set up and run the model.
+#           Read in meteorological data, and if desired calculate derived
+#           data to run the model.
 
-# Author:		Leah Jackson-Blake
-# Created:	06/11/2018
-# Copyright:	(c) Leah Jackson-Blake and NIVA, 2018
-# Licence:	
+# Author:   Leah Jackson-Blake
+# Created:  06/11/2018
+# Copyright:(c) Leah Jackson-Blake and NIVA, 2018
+# Licence:
 # -----------------------------------------------------------------------
 """ Read in and process input parameters and data
 """

@@ -3,8 +3,8 @@
 import simplyP as sp
 
 from .model import (
-    f_x
-    discretized_soilP
+    f_x,
+    discretized_soilP,
     ode_f,
     run_simply_p,
     derived_P_species,
@@ -37,6 +37,8 @@ from .visualise_results import(
 # Functions imported when import * is used for the package
 __all__ = [
     # Main model
+    'f_x',
+    'discretized_soilP'
     'ode_f',
     'run_simply_p',
     'derived_P_species',

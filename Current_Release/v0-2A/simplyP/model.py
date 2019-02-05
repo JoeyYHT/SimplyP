@@ -13,8 +13,8 @@ from scipy.integrate import odeint
 ##from scipy.stats import norm
 
 # Import local model modules
-from inputs import snow_hydrol_inputs, daily_PET
-import helper_functions as hf
+from simplyP.inputs import snow_hydrol_inputs, daily_PET
+import simplyP.helper_functions as hf
 
 # ######################################################################################
 

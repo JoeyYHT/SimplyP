@@ -9,7 +9,7 @@ with open('README.md', encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='simplyP',
-      version='0.1',
+      version='0.2',
       description='A parsimonious, semi-distributed and dynamic phosphorus model, implemented in Python.',
       long_description=long_description,
       url='https://github.com/LeahJB/SimplyP',
@@ -23,7 +23,7 @@ setup(name='simplyP',
                    'Operating System :: OS Independent',
                    'Programming Language :: Python :: 2',
                    'Programming Language :: Python :: 2.7',
-				   'Programming Language :: Python :: 3',
+                   'Programming Language :: Python :: 3',
                    'Programming Language :: Python :: 3.6'],
       keywords='phosphorus modelling water quality',
       py_modules=['simplyP'],
