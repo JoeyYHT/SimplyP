@@ -66,7 +66,7 @@ def ode_f(y, t, ode_params):
     Returns:
         Array of gradients for end of time step
 
-            [dVsA_dt, dQsA_dt, dVsS_dt, dQsS_dt, dVg_dt, dQg_dt, dVr_dt, dQr_dt, dQr_av_dt, dMsus_dt,
+            [dVsA_dt, dVsS_dt, dVg_dt, dVr_dt, dQr_dt, dQr_av_dt, dMsus_dt,
              dMsus_out_dt, dTDPr_dt, dTDPr_out_dt, dPPr_dt, dPPr_out_dt]
     """    
     # Unpack params. Params that vary by LU are series, with indices ['A','S','IG'],
@@ -636,12 +636,6 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
             # risk of the solver exiting before finding a solution due to reaching max number of steps
             # (in which case can get odd output). Also speeds up runtime.
             # This issue can also be circumvented by increasing the max. number of steps.
-            # mu parameter assumes Jacobian is a banded matrix with order specified by mu and ml
-            # (upper and lower), therefore reduces the number of dimensions.
-            # Magnus Norling estimated the Jacobian for SimplyP for the first time step and it appears to
-            # be banded with order 1, so we can set mu to 1 to speed up run times. Only affects
-            # run times much when the stiff equations for soil water TDP and associated change in labile P
-            # are included in the ODE solver.
             y, output_dict = odeint(ode_f, y0, ti, args=(ode_params,),full_output=1, rtol=0.01, mxstep=5000)
 
             # Extract values for the end of the step and store
@@ -846,6 +840,19 @@ def derived_P_species(df_R, f_TDP):
 # ###############################################################################################
 
 def sum_to_waterbody(p_struc, n_SC, df_R_dict, f_TDP):
+    """
+    Sums reaches to provide a single time series.
+    
+    Input:
+    p_struc: df defining reach spatial structure
+    n_SC: integer, number of sub-catchments
+    df_R_dict: dictionary of reach result dfs
+    f_TDP: relationship between SRP and TDP
+
+    Outputs:
+        If no reaches are specified to be summed over: empty list
+        Otherwise: dataframe with datetime index and columns same as df_R_dict[SC]    
+    """
     
     vars_to_sum = ['Q_cumecs','Msus_kg/day','TDP_kg/day','PP_kg/day']
     reaches_in_final_flux = p_struc['In_final_flux?'][p_struc['In_final_flux?']==1].index.values

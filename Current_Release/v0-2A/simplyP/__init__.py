@@ -3,6 +3,8 @@
 import simplyP as sp
 
 from .model import (
+    f_x
+    discretized_soilP
     ode_f,
     run_simply_p,
     derived_P_species,
