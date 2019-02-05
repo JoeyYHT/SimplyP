@@ -1,6 +1,6 @@
 SimplyP v0.1 and v0.2, description of input and output data files
 
-Last modified 17/12/2018
+Last modified 04/02/2019
 Leah Jackson-Blake
 
 ########################################################################
@@ -17,7 +17,7 @@ The file can have any name. The path to the file is entered at the top of the Ju
 
 The sheet names must not change, nor must the parameter names within the 'Param' column.
 
-See the 'readme' on the first sheet of the parameter file for more information.
+See the 'readme' on the first sheet of the parameter file for more guidance.
 
 ########################################################################
 2) Input: Meteorological data to drive the model
@@ -31,8 +31,8 @@ This should be stored in csv format with column headings:
 
 Description of variables:
 	Precipitation: total precipitation (rain plus snow), units mm
+	T_air: air temperature, units degrees Celsius
 	PET: potential evapotranspiration, units mm
-	T_air: air temperature, units degrees Celsius.
 
 If the time series in this file is longer than the period defined by the start and end dates in the parameter file ('Setup' sheet, parameters 'st_dt' and 'end_dt'), then it will be automatically truncated to coincide with the desired start and end dates. N.B. it must cover the period defined by the start and end dates.
 
@@ -75,30 +75,28 @@ See the Example_Data file for templates
 4) Optional output: Instream results
 
 csvs of simulated in-stream results are provided for all reaches and for the summed inputs to a receiving waterbody (if simulated).
+
 Files are labelled:
 	Instream_results_Reach#.csv where # is the reach number
 	Instream_results_receiving_waterbody.csv
 
 Files have the following columns in addition to the date:
 
-Model output:
-	Vr:   Reach volume (mm)
-	Qr:   Mean daily discharge from the reach (mm/d)
-	Msus: Daily flux of suspended sediment from the reach (kg/day)
-	TDPr: Daily flux of total dissolved P from the reach (kg/day)
-	PPr:  Daily flux of particulate P from the reach (kg/day)
+	Q_cumecs: Daily mean discharge (m3/s)
+	
+	Daily fluxes from the reach (kg/day):
+		Msus_kg/day: suspended sediment
+		PP_kg/day:  particulate P
+		TDP_kg/day: total dissolved P
+		TP_kg/day: total P
+		SRP_kg/day: solube reactive P
 
-Post-processing:
-	Sim_Q_cumecs: Daily mean discharge (m3/s)
-	Daily fluxes:
-		TPr: Daily flux of total P from the reach (kg/day)
-		SRPr: Daily flux of total P from the reach (kg/day)
-	Concentrations in mg/l:
-		PP_mgl: particulate P
-		SRP_mgl: soluble reactive P
+	Volume-weighted daily mean concentrations (mg/l):
 		SS_mgl: suspended sediment
+		PP_mgl: particulate P
 		TDP_mgl: total dissolved P
 		TP_mgl: total P
+		SRP_mgl: soluble reactive P		
 
 ########################################################################
 4) Optional output: Terrestrial compartment results

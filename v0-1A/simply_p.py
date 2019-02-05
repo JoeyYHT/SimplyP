@@ -118,18 +118,18 @@ def hydrol_inputs(D_snow_0, f_DDSM, met_df):
     Args:
         D_snow_0: Float. Initial snow depth (mm)
         f_DDSM:   Float. Degree-day factor for snow melt (mm/degree-day deg C)
-        met_df:   Dataframe. Met data with cols T_air, PET, Pptn
+        met_df:   Dataframe. Met data with cols T_air, PET, Precipitation
     
     Returns:
         met_df with additional columns [P_snow, P_rain, P_melt, D_snow_start, D_snow_end, P].
         Of these, P is the hydrological input to the soil store (mm/d)
     """    
     # Precipitation falling as snow (mm/d, as water equivalents)
-    met_df.loc[:,'P_snow'] = met_df['Pptn'].ix[met_df['T_air']<0]  # = total pptn if air T<0
+    met_df.loc[:,'P_snow'] = met_df['Precipitation'].ix[met_df['T_air']<0]  # = total pptn if air T<0
     met_df['P_snow'].fillna(0, inplace=True)  # otherwise, =0
     
     # Precipitation falling as rain (mm/d)
-    met_df['P_rain'] = met_df['Pptn'] - met_df['P_snow']
+    met_df['P_rain'] = met_df['Precipitation'] - met_df['P_snow']
 
     # Potential daily snow melt (unlimited by snow pack depth) (mm/day)
     met_df['P_melt'] = f_DDSM*(met_df['T_air']-0)
@@ -418,7 +418,7 @@ def run_simply_p(met_df, p_SU, p_LU, p_SC, p, dynamic_options, inc_snowmelt, ste
     if inc_snowmelt == 'y':
         met_df = hydrol_inputs(p['D_snow_0'], p['f_DDSM'], met_df)
     else:
-        met_df.rename(columns={'Pptn':'P'}, inplace=True)
+        met_df.rename(columns={'Precipitation':'P'}, inplace=True)
         
     #########################################################################################
     # SETUP ADMIN FOR LOOPING OVER TIME STEPS AND SUB-CATCHMENTS
@@ -864,11 +864,11 @@ def plot_snow(met_df, p_SU, fig_display_type):
     # PLOT RESULTS OF SNOW MODULE, WITH MET DATA
     if p_SU.inc_snowmelt == 'y':
         # Dictionary for y-axis labels
-        met_ylab_d = {'T_air':'Air temp\n(deg C)','PET':'PET (mm/d)', 'Pptn':'Total pptn\n(mm/d)',
+        met_ylab_d = {'T_air':'Air temp\n(deg C)','PET':'PET (mm/d)', 'Precipitation':'Total pptn\n(mm/d)',
                       'P_snow':'Pptn as\nsnow (mm/d)', 'P_rain':'Pptn as\nrain (mm/d)',
                       'P_melt':'Snow melt\n(mm/d)', 'D_snow_end':'Snow depth\n(mm)','P':'Rain &\nmelt (mm/d)' }
         
-        met_plotVars = ['T_air','Pptn','P_snow','P_melt','D_snow_end','P']  # Variables to plpot
+        met_plotVars = ['T_air','Precipitation','P_snow','P_melt','D_snow_end','P']  # Variables to plpot
         
         # PLOT
         met_df_forPlot = met_df[met_plotVars]

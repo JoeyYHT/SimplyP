@@ -50,7 +50,7 @@ Changes in model.py:
 
 - Added logic to ode_f so dPlabA_dt and dPlabNC_dt = 0 if the soil water volume is 0. Results in big speed up (these equations are stiff).
 
-- Added logic so no change in soil water TDP mass if user decides to keep soil water TDP constant (dynamic EPC0 = 'n'). The mass is constant but the concentration wouldn't be due to change in soil water volume, so replace mass/volume with a concentration parameter in the in-stream equation. Concentration parameter is equal to EPC0 if user wants soil water TDP concentration to stay constant. To do this, added parameter dynamic_EPC0 to ode_params
+- Added logic so no change in soil water TDP mass if user decides to keep soil water TDP constant (dynamic EPC0 = 'n'). The TDP soil water mass is then constant but the concentration wouldn't be due to change in soil water volume, so replace mass/volume with a concentration parameter in the in-stream TDP equation. Concentration parameter is equal to EPC0 if user wants soil water TDP concentration to stay constant. To do this, added parameter dynamic_EPC0 to ode_params
 
 - Moved PET and snowmelt calculations from the main run model function into inputs.py. Therefore also removed inc_snowmelt parameter from run_simplyP function.
 
@@ -66,7 +66,7 @@ Changes in model.py:
 
 - Define new function sum_to_waterbody(). Takes input reach structure from the excel file, and sums discharge and masses from desired reaches to produce inputs to a receiving waterbody (e.g. lake, estuary).
 
-- Qr0 used to be calculated only for SC1, the topmost reach, and initial Qs for other reaches were set to the output for the previous day for up-stream reaches. Changed to: user specifies the reach an initial value is provided for (e.g. most data-rich). Then convert the units to mm/day and it then is applied to all reaches (area-scaling involved in converting units means this is ok if hydrology is similar). Qr0 definition has therefore been moved up to after QsS0.
+- Initial reach flow (Qr0) used to be calculated only for SC1, the topmost reach, and initial reach discharges for other reaches were set to the output for the previous day for up-stream reaches. Changed to: user specifies the reach an initial value is provided for (e.g. most data-rich). Then convert the units to mm/day and it then is applied to all reaches (area-scaling involved in converting units means this is ok if hydrology is similar). Qr0 definition has therefore been moved up to after QsS0.
 
 - Added check for blank in sewage inputs parameter file (p_SC.loc['TDPeff',SC]). If blank, changed to 0.
 
@@ -74,7 +74,7 @@ Changes in model.py:
 
 - Moved calculation of df_R[‘TP_mgl’] and df_R[‘SRP_mgl’] from main function to new function derived_P_species (which is then re-used in sum_to_waterbody()).
 
-- Add calculation of reach SRP and TP fluxes fo function derived_P_species (previously only concentrations were calculated) and output in reach results dataframes
+- Add calculation of reach SRP and TP fluxes to function derived_P_species (previously only concentrations were calculated) and output in reach results dataframes
 
 ------------------------------------------------------------------------
 Changes in visualise_results.py:

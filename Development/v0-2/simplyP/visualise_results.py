@@ -49,16 +49,16 @@ def plot_snow(met_df, p_SU, fig_display_type):
 
     # Dictionary for re-naming ODE-output dataframe columns to match columns in obs dataframe
     # (used in stats calc as well as in in-stream plot)
-    rename_dict = {'SS_mgl':'SS','TDP_mgl':'TDP','PP_mgl':'PP','TP_mgl':'TP','Sim_Q_cumecs':'Q'}
+    rename_dict = {'SS_mgl':'SS','TDP_mgl':'TDP','PP_mgl':'PP','TP_mgl':'TP','Q_cumecs':'Q'}
 
     # PLOT RESULTS OF SNOW MODULE, WITH MET DATA
     if p_SU.inc_snowmelt == 'y':
         # Dictionary for y-axis labels
-        met_ylab_d = {'T_air':'Air temp\n(deg C)','PET':'PET (mm/d)', 'Pptn':'Total pptn\n(mm/d)',
-                      'P_snow':'Pptn as\nsnow (mm/d)', 'P_rain':'Pptn as\nrain (mm/d)',
+        met_ylab_d = {'T_air':'Air temp\n(deg C)','PET':'PET (mm/d)', 'Precipitation':'Total pptn\n(mm/d)',
+                      'P_snow':'Precipitation as\nsnow (mm/d)', 'P_rain':'Precipitation as\nrain (mm/d)',
                       'P_melt':'Snow melt\n(mm/d)', 'D_snow_end':'Snow depth\n(mm)','P':'Rain &\nmelt (mm/d)' }
         
-        met_plotVars = ['T_air','Pptn','P_snow','P_melt','D_snow_end','P']  # Variables to plpot
+        met_plotVars = ['T_air','Precipitation','P_snow','P_melt','D_snow_end','P']  # Variables to plpot
         
         # PLOT
         met_df_forPlot = met_df[met_plotVars]
@@ -233,7 +233,7 @@ def plot_in_stream(p_SU, obs_dict, df_R_dict, fig_display_type):
     for SC in reach_list:
 
         # Extract simulated data    
-        df_R_toPlot = df_R_dict[SC][['SS_mgl','TDP_mgl','PP_mgl','TP_mgl','Sim_Q_cumecs','SRP_mgl']] # All vars
+        df_R_toPlot = df_R_dict[SC][['SS_mgl','TDP_mgl','PP_mgl','TP_mgl','Q_cumecs','SRP_mgl']] # All vars
         df_R_toPlot.columns = ['SS','TDP','PP','TP','Q','SRP'] # Rename columns to match obs & param file
         df_R_toPlot = df_R_toPlot[R_vars_to_plot] # Remove any columns that aren't to be plotted
 
@@ -330,7 +330,7 @@ def plot_instream_summed(p_SU, df_summed, fig_display_type):
         else:
             logy_dict[var] = False
     
-    df_summed_toPlot = df_summed[['Sim_Q_cumecs','SS_mgl','TDP_mgl','PP_mgl','TP_mgl','SRP_mgl']]
+    df_summed_toPlot = df_summed[['Q_cumecs','SS_mgl','TDP_mgl','PP_mgl','TP_mgl','SRP_mgl']]
     df_summed_toPlot.columns = ['Q','SS','TDP','PP','TP','SRP'] # Rename columns to match obs & param file
     df_summed_toPlot = df_summed_toPlot[R_vars_to_plot] # Remove any columns that aren't to be plotted
     
@@ -389,7 +389,7 @@ def goodness_of_fit_stats(p_SU, df_R_dict, obs_dict):
 
                 # Extract data
                 # Simulated
-                df_statsData = df_R_dict[SC][['Sim_Q_cumecs','SS_mgl','PP_mgl','TP_mgl','TDP_mgl','SRP_mgl']] # Simulated
+                df_statsData = df_R_dict[SC][['Q_cumecs','SS_mgl','PP_mgl','TP_mgl','TDP_mgl','SRP_mgl']] # Simulated
                 df_statsData.columns = ['Q','SS','PP','TP','TDP','SRP']   # Rename columns to match obs
 
                 # Observed (only for observed data that can be simulated, in case file has other data)
