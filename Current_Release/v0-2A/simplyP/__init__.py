@@ -1,7 +1,3 @@
-# Automatic imports of simplyP modules contained within the package
-
-import simplyP as sp
-
 from .model import (
     f_x,
     discretized_soilP,
@@ -64,4 +60,3 @@ __all__ = [
     'plot_instream_summed',
     'goodness_of_fit_stats',
 ]
-
