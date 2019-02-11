@@ -109,7 +109,7 @@ def read_input_data(params_fpath):
     # Units of Q: m3/s, Units of chemistry: mg/l
     
     # If a string has been provided for the Q observations, try reading in
-    if isinstance(p_SU.Qobsdata_fpath, basestring):
+    if isinstance(p_SU.Qobsdata_fpath, str):
         Qobs_xl = pd.ExcelFile(p_SU.Qobsdata_fpath)
         SC_with_Qobs = [int(x) for x in Qobs_xl.sheet_names]  # List of sub-catchments with Q data
         print ('Observed discharge data read in')
@@ -117,7 +117,7 @@ def read_input_data(params_fpath):
         SC_with_Qobs = []
         
     # If a string has been provided for water chem obs, try reading in    
-    if isinstance(p_SU.chemObsData_fpath, basestring):
+    if isinstance(p_SU.chemObsData_fpath, str):
         chemObs_xl = pd.ExcelFile(p_SU.chemObsData_fpath)
         SC_with_chemObs = [int(x) for x in chemObs_xl.sheet_names]  # List of sub-catchments with chemistry data
         print ('Observed water chemistry data read in')

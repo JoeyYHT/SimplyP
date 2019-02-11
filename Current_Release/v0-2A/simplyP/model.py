@@ -477,7 +477,7 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
         # This is extracted from parameter file. User could supply nothing (blank cell),
         # a single integer, or a list of integers (read as a single string). Convert all to list type.
         # If a string (i.e. a list of reaches), convert cell value to a list of integers
-        if isinstance(p_struc.loc[SC,'Upstream_SCs'], basestring):
+        if isinstance(p_struc.loc[SC,'Upstream_SCs'], str):
             upstream_SCs = [int(x.strip()) for x in p_struc.loc[SC,'Upstream_SCs'].split(',')]
         # If an integer (or not a NaN, just in case...), read cell value directly into list
         elif isinstance(p_struc.loc[SC,'Upstream_SCs'], int) or not np.isnan(p_struc.loc[SC,'Upstream_SCs']):
