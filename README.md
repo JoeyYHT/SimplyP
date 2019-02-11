@@ -26,11 +26,11 @@ If you don't have an up-to-date Python installation, a good option is the [Anaco
     
 3. Install the Jupyter Notebook
 
-       conda install jupyter=1.0.0 notebook=5.4.1
+       conda install jupyter=1.0.0 notebook=5.7.4
     
 4. Download the [SimplyP repository](https://github.com/LeahJB/SimplyP) and unzip it to a location on your system. The folder Current_Release/vx-xx contains the main model code you will need to set up and run the model (vx-xx refers to the version number, which will change as development continues; e.g. v0-2A). The folder 'Example_Data' includes data to get you started with a model application using data from the Tarland catchment in Scotland.
 
-5. From the Anaconda command prompt, change directories to the 'Current_Release/vx-xx' folder (which contains 'setup.py'), replacing the x-xx with the appropriate version number for the current release. Then run
+5. From the Anaconda command prompt, change directories to the 'Current_Release/vx-xx' folder (which contains 'setup.py'), replacing the x-xx with the appropriate version number for the current release. To change directories, type cd followed by a space and then the filepath (e.g. cd C:\SimplyP\Current_Release\v0-2A). Then run
 
         python setup.py install    
     
