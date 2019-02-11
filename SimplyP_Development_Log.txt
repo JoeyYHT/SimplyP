@@ -14,23 +14,37 @@ Changed dataframe indexing - replaced ambiguous .ix with .loc in most cases. Als
 
 
 #############################################################################
-Autumn 2018 onwards, started working on new release v0.2
-(currently within the 'Development' folder)
+Autumn 2018 onwards, started working on new release v0.2A
+As of 02/2019, this is the main release version.
+
+The main changes compared to v0.1A are summarised below.
+------------------------------------------------------------------------
+Changes to parameter excel file:
+
+- Added new sheet Reach_structure
+- Added parameter SC_Qr0 to ‘Constant’ sheet, a setup parameter which describes which reach the initial discharge value is provided for
+- New parameter f_TDP in 'Constant' sheet to specify relation between SRP and TDP
+- f_Ar, f_IG, f_S, f_NC_Ar, f_NC_IG, f_NC_S parameter definitions have changed slightly (see parameter sheet for new definitions)
+  Will only affect setups which have newly-converted land
+
+------------------------------------------------------------------------
+Changes to input and output files:
+
+- Input meteorology file: rename column ‘Pptn’ to ‘Precipitation’
+                          PET is no longer a required input. If it is not specified, it is calculated by the model from air temperature
+						  
+- Reach output files: Columns renamed to include units
 
 ------------------------------------------------------------------------
 General changes:
 
 - Repackaged as a module with sub-modules, to split functions into different groups for ease of further development & debugging
-
 - Added new functions to __init__ file
-
 - Improved documentation of functions
-
 - Added more print statements to keep track of outputs
-
 - Added a text file describing input and output data
-
 - Created a log to keep track of model changes (text will be almost the same as the GitHub commits text)
+- Small changes in syntax throughout so runs in Python 3.6. Note, there are now a couple of issues with the plotting functions if you try to run with Python 2.7
 
 ------------------------------------------------------------------------
 Changes to functions in inputs.py file:
@@ -44,23 +58,25 @@ Changes to functions in inputs.py file:
 - Q and chem observations are now only read in if a filepath is provided in the parameter file. Can now leave these cells blank if don't want to read in obs
 
 ------------------------------------------------------------------------
-Changes in model.py:
+Main changes in model.py:
+
+- Soil labile P and soil water TDP were stiff equations, and made run times very slow if dynamic soil processes were turned on. Remove them from the ODE solver and discretize the change with time (function ‘discretized_soilP’, called at the end of each time step). Use a Poincare map to estimate the gradient over the time step. Comparison with ode results shows insignificant changes over a 30 year test period (always less than 0.04% difference).
+
+- Define a control function (f_x) for limiting soil water flow below field capacity. This is a piecewise polynomial and replaces the sigmoid control function used previously. Removes issue of negative flows when soil water volume was close to field capacity.
+
+- Groundwater flow, Qg, also limited to the minimum user-specified parameter through use of a (differentiable) control function f_x.
+
+- Soil water and groundwater flow ODEs replaced with explicit calculations of Q: Qs = (Vs - fc) * f_x(Vs, fc, 0.01) / T_s.  Both Qs and Qg are then calculated within ode_f, within the sub-catchment loop before starting the time loop to provide initial conditions for other equations, and at the end of the time loop to provide output. Produces exactly the same results as before, with similar run times, but is simpler.
 
 - Added in-stream SRP calculation as a simple function of simulated in-stream TDP: SRP = m * TDP, where m is a user-supplied parameter. New parameter added to parameter file. Associated plots and goodness of fit stats updated.
 
-- Added logic to ode_f so dPlabA_dt and dPlabNC_dt = 0 if the soil water volume is 0. Results in big speed up (these equations are stiff).
+- Added logic so no change in soil water TDP mass if user decides to keep soil water TDP constant (dynamic EPC0 = 'n'). The TDP soil water mass is then constant but the concentration wouldn't be due to change in soil water volume, so replace mass/volume with a concentration parameter in the in-stream TDP equation. Concentration parameter is equal to EPC0 if user wants soil water TDP concentration to stay constant
 
-- Added logic so no change in soil water TDP mass if user decides to keep soil water TDP constant (dynamic EPC0 = 'n'). The TDP soil water mass is then constant but the concentration wouldn't be due to change in soil water volume, so replace mass/volume with a concentration parameter in the in-stream TDP equation. Concentration parameter is equal to EPC0 if user wants soil water TDP concentration to stay constant. To do this, added parameter dynamic_EPC0 to ode_params
-
-- Moved PET and snowmelt calculations from the main run model function into inputs.py. Therefore also removed inc_snowmelt parameter from run_simplyP function.
-
-- Initial conditions QsA0, QsS0, Vg0, Vr0 and Tr0 were calculated within the loop over the met data in v0.1, using ODE output for related variables. No reason to do this for any apart from Vg0 (which is calculated from Qg0 as ODE output of Qg0 may be reset to user-supplied minimum). Therefore moved all out of the loop over met data & tidied up a bit
+- Moved PET and snowmelt calculations from the main run model function into inputs.py
 
 - Bug fix: Moved definition of initial conditions VsA0, VsS0, QsA0, QsS0, Qg0, Vg0 from outside the sub-catchment loop into the sub-catchment loop. Otherwise, only being set correctly for the first sub-catchment. Subsequent SCs’ initial conditions were the last time step from the previous SC, oops.
 
-- new argument p_struc (defined in inputs.py), to define the reach structure parameters
-
-- Before loop over met data: define list of upstream reaches, upstream_SCs, from the p_struc parameter dataframe
+- new argument p_struc (defined in inputs.py), to define the reach structure parameters. Before loop over met data: define list of upstream reaches, upstream_SCs, from the p_struc parameter dataframe
 
 - Replace calculation of upstream inputs as inputs from a single upstream reach, to calculate inputs from however many reaches are directly upstream. Affects: Qr_US_i, Msus_US_i, TDPr_US_i, PPr_US_i
 
@@ -68,13 +84,11 @@ Changes in model.py:
 
 - Initial reach flow (Qr0) used to be calculated only for SC1, the topmost reach, and initial reach discharges for other reaches were set to the output for the previous day for up-stream reaches. Changed to: user specifies the reach an initial value is provided for (e.g. most data-rich). Then convert the units to mm/day and it then is applied to all reaches (area-scaling involved in converting units means this is ok if hydrology is similar). Qr0 definition has therefore been moved up to after QsS0.
 
-- Added check for blank in sewage inputs parameter file (p_SC.loc['TDPeff',SC]). If blank, changed to 0.
-
-- Removed direct reading of ODE results when setting QsA0 and QsS0 for the next time step. Replaced with re-calculation from VsA0 and VsS0. See further discussion in Issue ‘Soil water sigmoid function leads to negative soil water flows’. Needs looking into more.
-
-- Moved calculation of df_R[‘TP_mgl’] and df_R[‘SRP_mgl’] from main function to new function derived_P_species (which is then re-used in sum_to_waterbody()).
-
 - Add calculation of reach SRP and TP fluxes to function derived_P_species (previously only concentrations were calculated) and output in reach results dataframes
+
+ - Newly-converted land parameters re-defined so that f_Ar, f_IG and f_S are now the total areas of arable, improved grassland and semi-natural land in the catchment (including newly-converted land). And f_NC_Ar, f_NC_IG, f_NC_S is the proportion of Ar, IG or S land that is newly-converted. Equations within ode_f altered to reflect this (e.g. previously the total area of agricultural land in the catchment was f_Ar+f_NC_Ar, whereas now it is just f_Ar). Updated calculation of f_NC_A and checks for user errors in input params
+ 
+ - Logic added so soil labile P mass, soil water TDP mass and EPC0 never go negative
 
 ------------------------------------------------------------------------
 Changes in visualise_results.py:
@@ -89,13 +103,5 @@ Changes in visualise_results.py:
 
 - Added new function plot_instream_summed to plot the results from summing reach inputs to look at simulated total discharge and averaged concentrations to receiving waterbody.
 
-- goodness_of_fit_stats: logic added so don’t try to calculate if don’t have any observations (len(obs_dict)<=0).
+- goodness_of_fit_stats: don’t try to calculate if don’t have any observations (len(obs_dict)<=0).
 
-------------------------------------------------------------------------
-Changes to parameter excel file:
-
-- Added new sheet Reach_structure
-
-- Added parameter SC_Qr0 to ‘Constant’ sheet, a setup parameter which describes which reach the initial discharge value is provided for
-
-- New parameter f_TDP in 'Constant' sheet to specify relation between SRP and TDP
