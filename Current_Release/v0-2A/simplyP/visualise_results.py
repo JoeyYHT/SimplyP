@@ -71,9 +71,11 @@ def plot_snow(met_df, p_SU, fig_display_type):
             plt.xlabel("")
             ax.tick_params(axis='both', which='major', labelsize=ticklabelsize)
             ax.tick_params(axis='both', which='minor', labelsize=ticklabelsize)
+            
         if p_SU.plot_snow == 'y':
             fname_snow = os.path.join(p_SU.output_fpath, "Fig_snow_results.%s" %p_SU.output_figtype)
             plt.savefig(fname_snow, bbox_inches='tight', dpi=p_SU.output_fig_dpi)
+            print ('Graph saved to file')
 
     else:
         raise ValueError('Snowfall/melt has not been estimated because inc_snowmelt != "y" in the setup file.') 
@@ -127,14 +129,16 @@ def plot_terrestrial(p_SU, p_SC, p, df_TC_dict, met_df, fig_display_type):
         plt.xlabel("")
         ax.tick_params(axis='both', which='major', labelsize=ticklabelsize)
         ax.tick_params(axis='both', which='minor', labelsize=ticklabelsize)
+        
     if p_SU.plot_TC == 'y':
         fname_TC1 = os.path.join(p_SU.output_fpath, "Fig_TC_hydrol.%s" % p_SU.output_figtype)
         plt.savefig(fname_TC1, bbox_inches='tight', dpi=p_SU.output_fig_dpi)
+        print ('Graph of terrestrial compartment hydrology results saved to file')
 
     # Plot 2: soil P   
     if p_SU.Dynamic_EPC0 == 'y':
         
-        # Variables in 2nd plot; depends if have NC land
+        # Variables in 2nd plot; depends if have NC land in any of the SCs
         if p_SC.loc['NC_type',1] != 'None':
             TC_f2_vars = ['Plabile_A_mgkg', 'EPC0_A_mgl', 'TDPs_A_mgl', 'Plabile_NC_mgkg',
                             'EPC0_NC_mgl', 'TDPs_NC_mgl']
@@ -144,21 +148,37 @@ def plot_terrestrial(p_SU, p_SC, p, df_TC_dict, met_df, fig_display_type):
         df_TC_soilP = df_TC_dict[1][TC_f2_vars] # Just plot for 1st sub-catchment
         TC_fig2_axes = df_TC_soilP.plot(subplots=True, figsize=(w, len(TC_f2_vars)*h+1), legend=False)
         plt.xlabel("")
+        
         for i, ax in enumerate(TC_fig2_axes):
             TC_fig2_axes[i].set_ylabel(TC_ylab_d[TC_f2_vars[i]], fontsize=axlabelsize)
             ax.yaxis.set_major_locator(MaxNLocator(nbins=_max_yticks, prune='upper'))
             ax.tick_params(axis='both', which='major', labelsize=ticklabelsize)
             ax.tick_params(axis='both', which='minor', labelsize=ticklabelsize)
+            
         if p_SU.plot_TC == 'y':
             fname_TC2 = os.path.join(p_SU.output_fpath, "Fig_TC_soilP.%s" % p_SU.output_figtype)
             plt.savefig(fname_TC2, bbox_inches='tight', dpi=p_SU.output_fig_dpi)
+            print ('Graph of terrestrial compartment phosphorus results saved to file')
     
     # Plot 3: 
     if p_SU.Dynamic_erodibility == 'y':  # Variables for 3rd plot; depends on erodibility option
-        TC_f3_vars = ['C_cover_A', 'Mland_A', 'Mland_IG', 'Mland_S']
-    else:
-        TC_f3_vars = ['Mland_A', 'Mland_IG', 'Mland_S']
+        TC_f3_vars = ['C_cover_A']
 
+        df_TC_sed = df_TC_dict[1][TC_f3_vars] # Just plot for 1st sub-catchment
+        TC_fig3_axes = df_TC_sed.plot(subplots=True, figsize=(w, len(TC_f3_vars)*h+1), legend=False)
+        plt.xlabel("")
+
+        for i, ax in enumerate(TC_fig3_axes):
+            TC_fig3_axes[i].set_ylabel(TC_ylab_d[TC_f3_vars[i]], fontsize=axlabelsize)
+            ax.yaxis.set_major_locator(MaxNLocator(nbins=_max_yticks, prune='upper'))
+            ax.tick_params(axis='both', which='major', labelsize=ticklabelsize)
+            ax.tick_params(axis='both', which='minor', labelsize=ticklabelsize)
+
+        if p_SU.plot_TC == 'y':
+            fname_TC3 = os.path.join(p_SU.output_fpath, "Fig_TC_sediment.%s" % p_SU.output_figtype)
+            plt.savefig(fname_TC3, bbox_inches='tight', dpi=p_SU.output_fig_dpi)
+            print ('Graph of change in sediment C_cover factor saved to file')
+        
         
 # ########################################################################################
 def plot_in_stream(p_SU, obs_dict, df_R_dict, fig_display_type):
@@ -439,7 +459,7 @@ def goodness_of_fit_stats(p_SU, df_R_dict, obs_dict):
 
                 # Save results in a dataframe for outputing directly to notebook
                 stats_df = pd.DataFrame(data=stats_li, columns=['N obs', 'NSE','log NSE','Spearmans r',
-                                        'r$^2$','Bias (%)', 'nRMSD (%)'], index=stats_vars)
+                                        'r2','Bias (%)', 'nRMSD (%)'], index=stats_vars)
                 stats_df['Reach'] = SC # Add Reach number as a column
                 stats_df_li.append(stats_df)
 

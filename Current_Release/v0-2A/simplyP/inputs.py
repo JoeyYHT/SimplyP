@@ -74,7 +74,13 @@ def read_input_data(params_fpath):
     # Describe which reaches flow into each other, and whether to sum fluxes to produce an input
     # to a water body (e.g. a lake or coastal zone)
     p_struc = pd.read_excel(params_fpath, sheet_name='Reach_structure', index_col=0, usecols="A,B,C")
-    p_struc.columns = ['Upstream_SCs','In_final_flux?']  # Shorten column names    
+    p_struc.columns = ['Upstream_SCs','In_final_flux?']  # Shorten column names
+    
+    # Easy to make some mistakes with the reach parameters, so add a couple of checks
+    if p_SU.n_SC != len(p_struc['Upstream_SCs']):
+        raise ValueError("The number of sub-catchments specified in your 'Setup' parameter sheet doesn't \nmatch the number of rows in your 'Reach_structure' sheet")
+    if p_SU.n_SC != len(p_SC.columns):
+        raise ValueError("The number of columns in your 'SC_reach' sheet should match the number of sub-catchments specified in your 'Setup' parameter sheet")
     
     # Print some output
     print ('Parameter values successfully read in')

@@ -523,9 +523,9 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
                     # sub-catchments (i.e. convert to cumecs then back again)
                     Qr_US = (df_R_dict[upstream_SC].ix[idx,'Qr']
                              * (p_SC.loc['A_catch',upstream_SC]/p_SC.loc['A_catch',SC])) # Ratio of areas
-                    Msus_US = df_R_dict[upstream_SC].ix[idx,'Msus']
-                    TDPr_US = df_R_dict[upstream_SC].ix[idx,'TDPr']
-                    PPr_US = df_R_dict[upstream_SC].ix[idx,'PPr']
+                    Msus_US = df_R_dict[upstream_SC].ix[idx,'Msus_kg/day']
+                    TDPr_US = df_R_dict[upstream_SC].ix[idx,'TDP_kg/day']
+                    PPr_US = df_R_dict[upstream_SC].ix[idx,'PP_kg/day']
                     # Append to lists
                     Qr_US_li.append(Qr_US)
                     Msus_US_li.append(Msus_US)
@@ -598,8 +598,9 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
             
             # Calculate dynamic EPC0 as a function of labile P mass
             if dynamic_options['Dynamic_EPC0'] == 'y':
-                EPC0_A_i = Plab0_A/(Kf*Msoil) # Agricultural EPC0; equals EPC0_0 on the 1st timestep
-                EPC0_NC_i = Plab0_NC/(Kf*Msoil) # EPC0 on newly-converted land
+                # Limit so don't go below 0
+                EPC0_A_i = max(Plab0_A/(Kf*Msoil),0) # Agricultural EPC0; equals EPC0_0 on the 1st timestep
+                EPC0_NC_i = max(Plab0_NC/(Kf*Msoil),0) # EPC0 on newly-converted land
            
             # Or, have a constant EPC0 throughout the model run
             else:
@@ -690,6 +691,12 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
                 # Newly-converted land soil water TDP and soil labile P mass (kg)
                 TDPs0_NC, Plab0_NC = discretized_soilP(p_LU.loc['P_netInput','NC'],p_SC.loc['A_catch',SC],
                                                     SC, Kf, Msoil, EPC0_NC_i, QsNC0, Qq_i, VsNC0, TDPs0_NC, Plab0_NC)
+                
+                # Limit TDPs and labile P so they cannot go below 0
+                TDPs0_A = max(TDPs0_A, 0.)
+                Plab0_A = max(Plab0_A, 0.)
+                TDPs0_NC = max(TDPs0_NC, 0.)
+                Plab0_NC = max(Plab0_NC, 0.)
                 
                 # If dynamic, calculate soil water TDP concentrations, for use in reach TDP ODE (kg/mm)
                 conc_TDPs_A = TDPs0_A/VsA0
@@ -800,7 +807,9 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
     
     # If in calibration mode, print the calculated Kf value
     if p_SU.run_mode == 'cal':
-        print ("Kf (the soil P sorption coefficient; mm/kg): %s\n" % Kf)
+        print("Running in calibration mode; the soil P sorption coefficient has been estimated as %s mm/kg\n" % Kf)
+    else:
+        print("Running in validation or scenario mode, so the soil P sorption coefficient has been read from the parameter file")
     
     # Save csvs of results
     if p_SU.save_output_csvs == 'y':
@@ -864,18 +873,18 @@ def sum_to_waterbody(p_struc, n_SC, df_R_dict, f_TDP):
     
     print ('Sub-catchments flowing directly into receiving waterbody: %s' %reaches_in_final_flux)
     
-    # Only do the rest if there are some reaches to sum over
-    if len(reaches_in_final_flux)>0:
+    # Only do the rest if there are more than 1 reaches to sum over
+    if len(reaches_in_final_flux)>1:
     
         summed_series_li = []
         for var in vars_to_sum:
             reach_data_li = []
             for reach in reaches_in_final_flux:
                 reach_data_li.append(df_R_dict[reach][var])
-            summed_series = pd.DataFrame(zip(*reach_data_li), columns=reaches_in_final_flux, index=df_R_dict[reach][var].index).sum(axis=1)
+            summed_series = pd.DataFrame(list(zip(*reach_data_li)), columns=reaches_in_final_flux, index=df_R_dict[reach][var].index).sum(axis=1)
             summed_series_li.append(summed_series)
 
-        df_summed = pd.DataFrame(zip(*summed_series_li), columns=vars_to_sum, index=df_R_dict[reach][var].index)
+        df_summed = pd.DataFrame(list(zip(*summed_series_li)), columns=vars_to_sum, index=df_R_dict[reach][var].index)
 
         # Calculating concentrations in mg/l: (daily mass/Q_cumecs) * (kg/day)(s/m3) (1 day/86400 s) (10**6 mg/kg) (10**-3 m3/l))
         df_summed['SS_mgl'] = (df_summed['Msus_kg/day']/df_summed['Q_cumecs']) * (1000./86400.)
@@ -884,12 +893,12 @@ def sum_to_waterbody(p_struc, n_SC, df_R_dict, f_TDP):
 
         # Derive total P and SRP
         df_summed = derived_P_species(df_summed, f_TDP)
+        return df_summed
     
     else:
-        df_summed = []
-        print ('No reaches were selected to be included in the sum, check your reach structure parameters')
+        print ('One or fewer reaches were selected to be included in the sum, check your reach structure parameters')
+        return None
         
-    return df_summed
     
 # ###############################################################################################
 
