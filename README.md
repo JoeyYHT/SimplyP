@@ -24,9 +24,9 @@ If you don't have an up-to-date Python installation, a good option is the [Anaco
 
        activate simplyp
     
-3. Install the Jupyter Notebook
+3. Install dependencies
 
-       conda install jupyter=1.0.0 notebook=5.7.4
+       conda install jupyter=1.0.0 notebook=5.7.4 matplotlib=2.0.2 pandas=0.24.1 seaborn=0.9.0 numpy=1.15.4 scipy=1.2.0 xlrd=1.2.0
     
 4. Download the [SimplyP repository](https://github.com/LeahJB/SimplyP) and unzip it to a location on your system. The folder Current_Release/vx-xx contains the main model code you will need to set up and run the model (vx-xx refers to the version number, which will change as development continues; e.g. v0-2A). The folder 'Example_Data' includes data to get you started with a model application using data from the Tarland catchment in Scotland.
 
