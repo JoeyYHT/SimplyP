@@ -21,10 +21,4 @@ setup(name='simplyP',
                    'Programming Language :: Python :: 2.7',
                    'Programming Language :: Python :: 3',
                    'Programming Language :: Python :: 3.6'],
-      keywords='phosphorus modelling water quality',
-      install_requires=['matplotlib==2.0.2',
-                        'pandas==0.22.0',
-                        'seaborn==0.8.1',
-                        'numpy==1.14.2',
-                        'scipy==1.0.1',
-                        'xlrd==1.1.0'])
+      keywords='phosphorus modelling water quality')
