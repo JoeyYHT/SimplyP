@@ -1,6 +1,12 @@
 # SimplyP: a simple phosphorus model
 
-This repository contains code to run a simple hydrology, sediment and phosphorus model, named **SimplyP**. The model is dynamic, working on a daily time step, and is spatially semi-distributed i.e. there is the ability to differentiate between hydrology, sediment and phosphorus processes, and between land use types and sub-catchments (with associated stream reaches). An application of the model is described in this paper:
+# New SimplyP version in C++
+
+This repository contains code to run a simple hydrology, sediment and phosphorus model, named **SimplyP**, written using **Python**. This Python version is **slow**. Since original development of this Python version, SimplyP has been recoded into C++ using the MOBIUS model building system. This new system offers a number of benefits compared to this Python version, including: (1) super quick run times, (2) easy to modify model equations, (3) a GUI for exploring and changing model parameters and exploring model results, (4) a Python wrapper for interacting with the compiled model, and (5) a number of optimisation and MCMC algorithms, via the Python wrapper. The code is hosted [here](https://github.com/NIVANorge/Mobius/edit/master/Applications/SimplyP), and user-friendly instructions to get you started using the GUI and the Python wrapper will be coming very shortly!
+
+# Introduction to SimplyP
+
+The model is dynamic, working on a daily time step, and is spatially semi-distributed i.e. there is the ability to differentiate between hydrology, sediment and phosphorus processes, and between land use types and sub-catchments (with associated stream reaches). An application of the model is described in this paper:
 
 > Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. *Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P*. Water Resources Research, **53**, 5382–5399. [doi:10.1002/2016WR020132](http://onlinelibrary.wiley.com/doi/10.1002/2016WR020132/abstract;jsessionid=7E1F1066482B9FFDBC29BA6B5A80042C.f04t01)
 
