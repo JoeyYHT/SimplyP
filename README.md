@@ -1,6 +1,16 @@
 # SimplyP: a simple phosphorus model
 
-This repository contains code to run a simple hydrology, sediment and phosphorus model, named **SimplyP**. The model is dynamic, working on a daily time step, and is spatially semi-distributed i.e. there is the ability to differentiate between hydrology, sediment and phosphorus processes, and between land use types and sub-catchments (with associated stream reaches). An application of the model is described in this paper:
+## Update April 2019: New SimplyP version using Mobius (C++)
+
+This repository contains code for a simple hydrology, sediment and phosphorus model, named **SimplyP**, written using **Python**. The Python version is **slow**, and the model has recently been recoded into C++ using the [MOBIUS model building framework](https://github.com/NIVANorge/Mobius). This new system offers a number of benefits compared to the Python version, including: (1) super-quick run times, (2) easy to modify model equations, (3) a GUI for exploring and changing model parameters and visualising results, (4) a [Python wrapper](https://github.com/NIVANorge/Mobius/tree/master/PythonWrapper) for interacting with the compiled model (without requiring any C++ knowledge), and (5) a number of optimisation and MCMC algorithms, via the Python wrapper. 
+
+The Mobius version of SimplyP is hosted [here](https://github.com/NIVANorge/Mobius/edit/master/Applications/SimplyP), and user-friendly instructions to get you started using the GUI and the Python wrapper will be coming very shortly.
+
+The Python version of SimplyP in this repository is fully functional, but for most practical applications we **recommend using the Mobius version** (you do not need to be familiar with C++).
+
+## Introduction to SimplyP
+
+The model is dynamic, working on a daily time step, and is spatially semi-distributed i.e. there is the ability to differentiate between hydrology, sediment and phosphorus processes, and between land use types and sub-catchments (with associated stream reaches). An application of the model is described in this paper:
 
 > Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. *Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P*. Water Resources Research, **53**, 5382–5399. [doi:10.1002/2016WR020132](http://onlinelibrary.wiley.com/doi/10.1002/2016WR020132/abstract;jsessionid=7E1F1066482B9FFDBC29BA6B5A80042C.f04t01)
 
@@ -12,7 +22,7 @@ The current release version of the model is v0-2A. There are a number of known i
 
 Please report any bugs or errors either by [submitting a pull request via GitHub](https://github.com/LeahJB/SimplyP/pulls) or by emailing Leah Jackson-Blake (<ljb@niva.no>).
 
-## Installation
+### Installation
 
 If you don't have an up-to-date Python installation, a good option is the [Anaconda Python distribution](https://www.anaconda.com/download/). Model development was carried out using **Python 2.7**, but should now be run with **Python 3.6** as Python 2.7 is being phased out.
 
@@ -34,7 +44,7 @@ If you don't have an up-to-date Python installation, a good option is the [Anaco
 
         python setup.py install    
     
-## Running the model
+### Running the model
 
 A simple example illustrating how the model can be used is [here](https://github.com/LeahJB/SimplyP/blob/Hydrology_Model/Current_Release/v0-2A/Run_SimplyP_v0-2A_LongExample.ipynb). To run this example:
 
@@ -50,6 +60,6 @@ A simple example illustrating how the model can be used is [here](https://github
 
 3. When you have finished working with the model, click 'File > Close and Halt' (remember to save any changes first, if desired), then close the browser tab. Close the `'Home'` tab too, then `CTRL + C'` twice at the Anaconda prompt to shut down any active Python kernels.
 
-## Working with your own data
+### Working with your own data
 
 A description of the input data required by the model is given [here](https://github.com/LeahJB/SimplyP/blob/Hydrology_Model/Input_output_data_description.txt), and will be updated periodically. This file also describes the output data that may optionally be saved to file.
