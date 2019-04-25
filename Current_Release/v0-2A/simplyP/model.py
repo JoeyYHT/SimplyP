@@ -587,7 +587,7 @@ def run_simply_p(met_df, p_struc, p_SU, p_LU, p_SC, p, dynamic_options, step_len
                 else:  # For non-arable LU, the cover factor is always constant throughout the year
                     C_cover = p_LU[LU]['C_cover']
                 
-                # Reach sed input coefficient per land use class (kg/d). See documentation for rationale/source
+                # Reach sed input coefficient per land use class (kg/mm). See documentation for rationale/source
                 Esus_i[LU] = (p['E_M'] * p_SC.loc['S_reach',SC]
                               * slope_dict[LU]
                               *C_cover
